@@ -94,7 +94,7 @@ mod zk_proof_handlers;
 
 use anyhow::Result;
 use axum::extract::{Request, State};
-use axum::http::{header, HeaderValue, Method, StatusCode};
+use axum::http::{header, HeaderName, HeaderValue, Method, StatusCode};
 use axum::middleware;
 use axum::response::Response;
 use dotenv::dotenv;
@@ -103,6 +103,7 @@ use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 use tower_http::cors::CorsLayer;
 
 async fn track_in_flight_middleware(
@@ -267,7 +268,13 @@ async fn main() -> Result<()> {
         .expose_headers([
             crate::request_tracing::X_REQUEST_ID.clone(),
             crate::request_tracing::X_CORRELATION_ID.clone(),
-        ]);
+            header::RETRY_AFTER,
+            HeaderName::from_static("x-ratelimit-limit"),
+            HeaderName::from_static("x-ratelimit-remaining"),
+            HeaderName::from_static("x-ratelimit-reset"),
+            HeaderName::from_static("x-ratelimit-tier"),
+        ])
+        .max_age(Duration::from_secs(3600));
 
     // Build router
     let app = routes::application_routes(schema)
