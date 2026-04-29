@@ -273,12 +273,22 @@ export function combineAdvancedQueryWithFilters(
     tags?: string[];
     author?: string;
     verified_only?: boolean;
+    favorites_only?: boolean;
+    favorites_list?: string[];
   },
 ): QueryNode {
   const andConditions: QueryNode[] = [base];
 
   if (filters.verified_only) {
     andConditions.push({ field: "verified", operator: "eq", value: true });
+  }
+
+  if (filters.favorites_only && filters.favorites_list?.length) {
+    if (filters.favorites_list.length === 1) {
+      andConditions.push({ field: 'contract_id', operator: 'eq', value: filters.favorites_list[0] });
+    } else {
+      andConditions.push({ field: 'contract_id', operator: 'in', value: filters.favorites_list });
+    }
   }
 
   if (filters.author?.trim()) {

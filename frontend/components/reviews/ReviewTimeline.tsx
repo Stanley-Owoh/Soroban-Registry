@@ -9,6 +9,7 @@ import {
   Clock,
   User,
 } from "lucide-react";
+import type { CollaborativeComment, CollaborativeReviewer } from "@/types";
 
 // Native replacement for date-fns `format(date, "MMM d, h:mm a")`
 function formatDateTime(dateStr: string): string {
@@ -28,7 +29,6 @@ interface ReviewTimelineProps {
 }
 
 export default function ReviewTimeline({ reviewId }: ReviewTimelineProps) {
-  const queryClient = useQuery;
   const { data: details, isLoading } = useQuery({
     queryKey: ["collaborative-review", reviewId],
     queryFn: () => api.getCollaborativeReview(reviewId),
@@ -65,7 +65,7 @@ export default function ReviewTimeline({ reviewId }: ReviewTimelineProps) {
       </div>
 
       <div className="space-y-8 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
-        {comments.map((comment: any) => (
+        {comments.map((comment: CollaborativeComment) => (
           <div key={comment.id} className="relative pl-10">
             <div className="absolute left-0 top-1 w-8 h-8 rounded-full bg-card border border-border flex items-center justify-center z-10">
               <MessageSquare className="w-4 h-4 text-muted-foreground" />
@@ -92,7 +92,7 @@ export default function ReviewTimeline({ reviewId }: ReviewTimelineProps) {
         ))}
 
         {reviewers.map(
-          (reviewer: any) =>
+          (reviewer: CollaborativeReviewer) =>
             reviewer.status !== "pending" && (
               <div key={reviewer.id} className="relative pl-10">
                 <div

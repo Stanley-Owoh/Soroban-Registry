@@ -102,3 +102,45 @@ export interface MetricSeriesResponse {
   points?: MetricSeriesPoint[];
   samples?: MetricSample[];
 }
+
+export interface AnalyticsResponse {
+  searchTrends: Array<{
+    date: string;
+    searches: number;
+    uniqueTerms: number;
+  }>;
+  topSearchTerms: Array<{
+    term: string;
+    count: number;
+    growth: number;
+  }>;
+  discoveryPaths: {
+    nodes: Array<{
+      id: string;
+      name: string;
+      category: string;
+    }>;
+    links: Array<{
+      source: string;
+      target: string;
+      value: number;
+    }>;
+  };
+  engagementFunnel: Array<{
+    stage: string;
+    users: number;
+    percentage: number;
+  }>;
+  categoryPopularity: Array<{
+    category: string;
+    searches: number;
+    views: number;
+    deployments: number;
+  }>;
+  networkDistribution: Array<{
+    region: string;
+    network: string;
+    count: number;
+    percentage: number;
+  }>;
+}

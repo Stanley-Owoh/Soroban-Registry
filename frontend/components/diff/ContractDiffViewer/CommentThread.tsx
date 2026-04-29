@@ -3,9 +3,15 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
 
+export interface DiffComment {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
 interface CommentThreadProps {
   lineKey: string;
-  comments: any[];
+  comments: DiffComment[];
   onAdd: (lineKey: string, text: string) => void;
   onClose: () => void;
 }

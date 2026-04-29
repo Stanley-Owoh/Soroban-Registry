@@ -1,6 +1,5 @@
-"use client";
+'use client';
 
-import React from "react";
 
 export interface BadgeConfig {
   label: string;
@@ -12,7 +11,7 @@ export interface BadgeProps {
   status: string;
   config: Record<string, BadgeConfig>;
   defaultConfig?: BadgeConfig;
-  size?: "sm" | "md";
+  size?: 'sm' | 'md';
 }
 
 /**
@@ -33,21 +32,19 @@ export default function Badge({
   status,
   config,
   defaultConfig,
-  size = "sm",
+  size = 'sm',
 }: BadgeProps) {
   const badgeConfig = config[status] || defaultConfig;
 
   if (!badgeConfig) {
-    console.warn(
-      `Badge: No configuration found for status "${status}" and no default provided`,
-    );
+    console.warn(`Badge: No configuration found for status "${status}" and no default provided`);
     return null;
   }
 
   const { label, className, Icon } = badgeConfig;
-  const iconSize = size === "md" ? "w-4 h-4" : "w-3 h-3";
-  const textSize = size === "md" ? "text-xs" : "text-[10px]";
-  const padding = size === "md" ? "px-2.5 py-1" : "px-2 py-0.5";
+  const iconSize = size === 'md' ? 'w-4 h-4' : 'w-3 h-3';
+  const textSize = size === 'md' ? 'text-xs' : 'text-[10px]';
+  const padding = size === 'md' ? 'px-2.5 py-1' : 'px-2 py-0.5';
 
   return (
     <span

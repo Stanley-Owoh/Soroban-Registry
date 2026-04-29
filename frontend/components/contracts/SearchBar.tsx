@@ -112,23 +112,27 @@ export function SearchBar({
   const latestQueryRef = useRef(value);
 
   useEffect(() => {
-    setRecentSearches(loadRecentSearches());
+    requestAnimationFrame(() => setRecentSearches(loadRecentSearches()));
   }, []);
 
   useEffect(() => {
     latestQueryRef.current = value;
 
     if (!value.trim()) {
-      setSuggestions([]);
-      setIsLoading(false);
-      setHasError(false);
-      setIsOpen(recentSearches.length > 0);
-      setHighlightedIndex(-1);
+      requestAnimationFrame(() => {
+        setSuggestions([]);
+        setIsLoading(false);
+        setHasError(false);
+        setIsOpen(recentSearches.length > 0);
+        setHighlightedIndex(-1);
+      });
       return;
     }
 
-    setIsLoading(true);
-    setHasError(false);
+    requestAnimationFrame(() => {
+      setIsLoading(true);
+      setHasError(false);
+    });
 
     const delay = window.setTimeout(async () => {
       try {

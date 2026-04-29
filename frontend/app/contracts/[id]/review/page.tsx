@@ -17,6 +17,7 @@ import {
   Database,
 } from "lucide-react";
 import Link from "next/link";
+import type { CollaborativeComment } from "@/types";
 
 function ReviewContent() {
   const params = useParams();
@@ -69,7 +70,9 @@ function ReviewContent() {
   });
 
   const addCommentMutation = useMutation({
-    mutationFn: (data: any) => api.addCollaborativeComment(reviewId!, data),
+    mutationFn: (
+      data: Pick<CollaborativeComment, "content" | "line_number" | "abi_path">,
+    ) => api.addCollaborativeComment(reviewId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["collaborative-review", reviewId],
@@ -99,7 +102,7 @@ function ReviewContent() {
 
   const annotationsMap = useMemo(() => {
     const map: Record<string, boolean> = {};
-    reviewDetails?.comments.forEach((c) => {
+    reviewDetails?.comments.forEach((c: CollaborativeComment) => {
       if (c.line_number) map[`line-${c.line_number}`] = true;
       if (c.abi_path) map[`abi-${c.abi_path}`] = true;
     });

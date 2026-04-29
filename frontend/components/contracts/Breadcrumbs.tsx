@@ -1,6 +1,5 @@
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
-import React from "react";
+import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
 
 export interface BreadcrumbItem {
   label: string;
@@ -15,10 +14,10 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
   if (!items || items.length === 0) return null;
 
   const schemaData = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
     itemListElement: items.map((item, index) => ({
-      "@type": "ListItem",
+      '@type': 'ListItem',
       position: index + 1,
       name: item.label,
       ...(item.href && { item: item.href }),
@@ -40,7 +39,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
               {isLast || !item.href ? (
                 <span
                   className="font-medium text-foreground"
-                  aria-current={isLast ? "page" : undefined}
+                  aria-current={isLast ? 'page' : undefined}
                 >
                   {item.label}
                 </span>

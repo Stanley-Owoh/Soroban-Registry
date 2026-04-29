@@ -1,4 +1,4 @@
-import type { Contract } from "@/types";
+import type { Contract } from '@/types';
 import {
   Box,
   Check,
@@ -13,38 +13,38 @@ import {
   Sparkles,
   Tag,
   Star,
-} from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import React from "react";
-import { useAnalytics } from "@/hooks/useAnalytics";
-import { useCopy } from "@/hooks/useCopy";
-import { formatContractId } from "@/lib/utils/formatting";
-import { useTranslation } from "@/lib/i18n/client";
-import { generateSolidPlaceholder } from "@/lib/images";
-import VerificationBadge from "@/components/verification/VerificationBadge";
-import HealthWidget from "./HealthWidget";
-import ContractQuickViewModal from "./contracts/ContractQuickViewModal";
-import FavoriteButton from "./FavoriteButton";
+} from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
+import { useAnalytics } from '@/hooks/useAnalytics';
+import { useCopy } from '@/hooks/useCopy';
+import { formatContractId } from '@/lib/utils/formatting';
+import { useTranslation } from '@/lib/i18n/client';
+import { generateSolidPlaceholder } from '@/lib/images';
+import VerificationBadge from '@/components/verification/VerificationBadge';
+import HealthWidget from './HealthWidget';
+import ContractQuickViewModal from './contracts/ContractQuickViewModal';
+import FavoriteButton from './FavoriteButton';
 
 const LOGO_SIZE_PX = 40;
-const LOGO_PLACEHOLDER = generateSolidPlaceholder("#e5e7eb");
+const LOGO_PLACEHOLDER = generateSolidPlaceholder('#e5e7eb');
 
 interface ContractCardProps {
   contract: Contract;
-  sortBy?: "created_at" | "updated_at" | "popularity" | "relevance";
+  sortBy?: 'created_at' | 'updated_at' | 'popularity' | 'relevance';
 }
 
 const SORT_ICON_META = {
-  created_at: { icon: Clock, label: "Sorted by newest" },
-  updated_at: { icon: RefreshCw, label: "Sorted by last updated" },
-  popularity: { icon: Flame, label: "Sorted by popularity" },
-  relevance: { icon: Sparkles, label: "Sorted by relevance" },
+  created_at: { icon: Clock, label: 'Sorted by newest' },
+  updated_at: { icon: RefreshCw, label: 'Sorted by last updated' },
+  popularity: { icon: Flame, label: 'Sorted by popularity' },
+  relevance: { icon: Sparkles, label: 'Sorted by relevance' },
 } as const;
 
 export default function ContractCard({ contract, sortBy }: ContractCardProps) {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation('common');
   const { logEvent } = useAnalytics();
   const router = useRouter();
   const { copy, copied, isCopying } = useCopy();
@@ -52,26 +52,24 @@ export default function ContractCard({ contract, sortBy }: ContractCardProps) {
   const [logoError, setLogoError] = React.useState(false);
 
   const networkColors = {
-    mainnet: "bg-green-500/10 text-green-500 border-green-500/20",
-    testnet: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-    futurenet: "bg-purple-500/10 text-purple-500 border-purple-500/20",
+    mainnet: 'bg-green-500/10 text-green-500 border-green-500/20',
+    testnet: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+    futurenet: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
   };
   const networkDots = {
-    mainnet: "bg-green-400",
-    testnet: "bg-blue-400",
-    futurenet: "bg-purple-400",
+    mainnet: 'bg-green-400',
+    testnet: 'bg-blue-400',
+    futurenet: 'bg-purple-400',
   };
 
   const address = formatContractId(contract.contract_id);
-  const categoryLabel = contract.category || "uncategorized";
+  const categoryLabel = contract.category || 'uncategorized';
   const deploymentCount =
-    typeof (contract as Contract & { deployment_count?: number })
-      .deployment_count === "number"
+    typeof (contract as Contract & { deployment_count?: number }).deployment_count === 'number'
       ? (contract as Contract & { deployment_count?: number }).deployment_count
-      : typeof (contract as Contract & { deployments?: number }).deployments ===
-          "number"
+      : typeof (contract as Contract & { deployments?: number }).deployments === 'number'
         ? (contract as Contract & { deployments?: number }).deployments
-        : "—";
+        : '—';
 
   const handleViewDetails = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -83,7 +81,7 @@ export default function ContractCard({ contract, sortBy }: ContractCardProps) {
     event.preventDefault();
     event.stopPropagation();
     setQuickViewOpen(true);
-    logEvent("contract_quick_view_opened", {
+    logEvent('contract_quick_view_opened', {
       contract_id: contract.id,
       contract_name: contract.name,
       network: contract.network,
@@ -92,10 +90,10 @@ export default function ContractCard({ contract, sortBy }: ContractCardProps) {
 
   const copyAddress = async () => {
     await copy(contract.contract_id, {
-      successEventName: "contract_address_copied",
-      failureEventName: "contract_address_copy_failed",
-      successMessage: "Contract address copied",
-      failureMessage: "Unable to copy contract address",
+      successEventName: 'contract_address_copied',
+      failureEventName: 'contract_address_copy_failed',
+      successMessage: 'Contract address copied',
+      failureMessage: 'Unable to copy contract address',
       analyticsParams: {
         contract_id: contract.id,
         contract_name: contract.name,
@@ -103,9 +101,7 @@ export default function ContractCard({ contract, sortBy }: ContractCardProps) {
     });
   };
 
-  const handleCopyAddress = async (
-    event: React.MouseEvent<HTMLButtonElement>,
-  ) => {
+  const handleCopyAddress = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
     await copyAddress();
@@ -116,7 +112,7 @@ export default function ContractCard({ contract, sortBy }: ContractCardProps) {
       <Link
         href={`/contracts/${contract.id}`}
         onClick={() =>
-          logEvent("contract_viewed", {
+          logEvent('contract_viewed', {
             contract_id: contract.id,
             contract_name: contract.name,
             network: contract.network,
@@ -133,9 +129,7 @@ export default function ContractCard({ contract, sortBy }: ContractCardProps) {
                 aria-label={SORT_ICON_META[sortBy].label}
                 title={SORT_ICON_META[sortBy].label}
               >
-                {React.createElement(SORT_ICON_META[sortBy].icon, {
-                  className: "h-3 w-3",
-                })}
+                {React.createElement(SORT_ICON_META[sortBy].icon, { className: 'h-3 w-3' })}
               </span>
             )}
 
@@ -168,10 +162,7 @@ export default function ContractCard({ contract, sortBy }: ContractCardProps) {
                   <h3 className="truncate text-lg font-semibold text-foreground transition-colors group-hover:text-primary">
                     {contract.name}
                   </h3>
-                  <VerificationBadge
-                    status={contract.is_verified ? "approved" : "unverified"}
-                    level={contract.verification_level}
-                  />
+                  <VerificationBadge status={contract.is_verified ? 'approved' : 'unverified'} level={contract.verification_level} />
                 </div>
                 <p className="font-mono text-xs text-muted-foreground">
                   {address}
@@ -181,9 +172,7 @@ export default function ContractCard({ contract, sortBy }: ContractCardProps) {
               <span
                 className={`ml-3 inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${networkColors[contract.network]}`}
               >
-                <span
-                  className={`h-2 w-2 rounded-full ${networkDots[contract.network]}`}
-                />
+                <span className={`h-2 w-2 rounded-full ${networkDots[contract.network]}`} />
                 {contract.network}
               </span>
             </div>
@@ -193,10 +182,7 @@ export default function ContractCard({ contract, sortBy }: ContractCardProps) {
                 <Tag className="h-3 w-3 shrink-0" />
                 <span className="truncate">{categoryLabel}</span>
               </span>
-              <VerificationBadge
-                status={contract.is_verified ? "approved" : "unverified"}
-                level={contract.verification_level}
-              />
+              <VerificationBadge status={contract.is_verified ? 'approved' : 'unverified'} level={contract.verification_level} />
             </div>
 
             {contract.description && (
@@ -208,27 +194,19 @@ export default function ContractCard({ contract, sortBy }: ContractCardProps) {
             <div className="mb-4 grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-2">
               <div className="flex items-center gap-1.5">
                 <Layers3 className="h-3.5 w-3.5" />
-                <span>
-                  {t("contractCard.deployments")}: {deploymentCount}
-                </span>
+                <span>{t('contractCard.deployments')}: {deploymentCount}</span>
               </div>
               <div className="flex min-w-0 items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">
-                  {t("contractCard.updated")}:{" "}
-                  {new Date(contract.updated_at).toLocaleDateString()}
+                  {t('contractCard.updated')}: {new Date(contract.updated_at).toLocaleDateString()}
                 </span>
               </div>
             </div>
 
-            <p className="mb-4 truncate font-mono text-xs text-muted-foreground">
-              {address}
-            </p>
+            <p className="mb-4 truncate font-mono text-xs text-muted-foreground">{address}</p>
 
-            <div
-              className="mb-4"
-              onClick={(event: React.MouseEvent) => event.preventDefault()}
-            >
+            <div className="mb-4" onClick={(event: React.MouseEvent) => event.preventDefault()}>
               <HealthWidget contract={contract} />
             </div>
 
@@ -239,24 +217,21 @@ export default function ContractCard({ contract, sortBy }: ContractCardProps) {
                 className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
               >
                 <Eye className="h-3.5 w-3.5" />
-                <span>{t("contractCard.quickView")}</span>
+                <span>{t('contractCard.quickView')}</span>
               </button>
               <button
                 type="button"
                 onClick={handleViewDetails}
                 className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
               >
-                <span>{t("contractCard.viewDetails")}</span>
+                <span>{t('contractCard.viewDetails')}</span>
                 <ExternalLink className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"
                 onClick={handleCopyAddress}
                 onKeyDown={(event) => {
-                  if (
-                    (event.metaKey || event.ctrlKey) &&
-                    event.key.toLowerCase() === "c"
-                  ) {
+                  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c') {
                     event.preventDefault();
                     event.stopPropagation();
                     void copyAddress();
@@ -265,16 +240,8 @@ export default function ContractCard({ contract, sortBy }: ContractCardProps) {
                 disabled={isCopying}
                 className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
               >
-                {copied ? (
-                  <Check className="h-3.5 w-3.5" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5" />
-                )}
-                <span>
-                  {copied
-                    ? t("contractCard.copied")
-                    : t("contractCard.copyAddress")}
-                </span>
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                <span>{copied ? t('contractCard.copied') : t('contractCard.copyAddress')}</span>
               </button>
               <div className="ml-auto flex items-center gap-1">
                 <FavoriteButton contractId={contract.id} size="sm" />
@@ -297,3 +264,4 @@ export default function ContractCard({ contract, sortBy }: ContractCardProps) {
     </>
   );
 }
+

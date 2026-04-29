@@ -1,18 +1,18 @@
-"use client";
+'use client'
 
-import { useTranslation } from "@/lib/i18n/client";
-import { languages } from "@/lib/i18n/settings";
-import { useState, useEffect } from "react";
+import { useTranslation } from '@/lib/i18n/client'
+import { languages } from '@/lib/i18n/settings'
+import { useState, useEffect } from 'react'
 
 export default function LanguageSelector({ lng }: { lng: string }) {
-  const { t, i18n } = useTranslation(lng);
-  const [mounted, setMounted] = useState(false);
+  const { t, i18n } = useTranslation(lng)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    requestAnimationFrame(() => setMounted(true))
+  }, [])
 
-  if (!mounted) return null;
+  if (!mounted) return null
 
   return (
     <div className="relative inline-block text-left group">
@@ -52,21 +52,19 @@ export default function LanguageSelector({ lng }: { lng: string }) {
               key={l}
               onClick={() => i18n.changeLanguage(l)}
               className={`${
-                lng === l
-                  ? "bg-primary/10 text-primary font-semibold"
-                  : "text-muted-foreground"
+                lng === l ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground'
               } block px-4 py-2 text-sm w-full text-left hover:bg-accent transition-colors`}
               role="menuitem"
               tabIndex={-1}
             >
-              {l === "en" && "English"}
-              {l === "es" && "Español"}
-              {l === "fr" && "Français"}
-              {l === "ar" && "العربية"}
+              {l === 'en' && 'English'}
+              {l === 'es' && 'Español'}
+              {l === 'fr' && 'Français'}
+              {l === 'ar' && 'العربية'}
             </button>
           ))}
         </div>
       </div>
     </div>
-  );
+  )
 }

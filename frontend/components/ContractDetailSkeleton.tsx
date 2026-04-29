@@ -1,5 +1,4 @@
-import React from "react";
-import LoadingSkeleton from "./LoadingSkeleton";
+import LoadingSkeleton from './LoadingSkeleton';
 
 export default function ContractDetailSkeleton() {
   return (
@@ -10,16 +9,8 @@ export default function ContractDetailSkeleton() {
           <LoadingSkeleton width="60%" height="2.5rem" />
           <LoadingSkeleton width="40%" height="1.25rem" />
           <div className="flex gap-2 mt-4">
-            <LoadingSkeleton
-              width="4rem"
-              height="1.5rem"
-              variant="rectangular"
-            />
-            <LoadingSkeleton
-              width="5rem"
-              height="1.5rem"
-              variant="rectangular"
-            />
+            <LoadingSkeleton width="4rem" height="1.5rem" variant="rectangular" />
+            <LoadingSkeleton width="5rem" height="1.5rem" variant="rectangular" />
           </div>
         </div>
         <div className="flex gap-2">
@@ -50,17 +41,13 @@ export default function ContractDetailSkeleton() {
               <LoadingSkeleton width="95%" height="1rem" />
             </div>
           </div>
-
+          
           <div className="space-y-4 mt-8">
             <LoadingSkeleton width="40%" height="1.5rem" />
-            <LoadingSkeleton
-              width="100%"
-              height="15rem"
-              variant="rectangular"
-            />
+            <LoadingSkeleton width="100%" height="15rem" variant="rectangular" />
           </div>
         </div>
-
+        
         <div className="space-y-6">
           <div className="border border-border rounded-lg p-4 space-y-4">
             <LoadingSkeleton width="50%" height="1.25rem" />
@@ -72,11 +59,7 @@ export default function ContractDetailSkeleton() {
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <LoadingSkeleton
-                    width="2rem"
-                    height="2rem"
-                    variant="circular"
-                  />
+                  <LoadingSkeleton width="2rem" height="2rem" variant="circular" />
                   <LoadingSkeleton width="60%" height="1rem" />
                 </div>
               ))}

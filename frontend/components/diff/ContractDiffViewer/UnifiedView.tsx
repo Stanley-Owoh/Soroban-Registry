@@ -3,12 +3,12 @@
 import React from "react";
 import { MessageSquare } from "lucide-react";
 import { HighlightedLine } from "./HighlightedLine";
-import { CommentThread } from "./CommentThread";
+import { CommentThread, type DiffComment } from "./CommentThread";
 import { DiffLine } from "@/utils/comparison";
 
 interface UnifiedViewProps {
   lines: DiffLine[];
-  comments: Record<string, any[]>;
+  comments: Record<string, DiffComment[]>;
   openThread: string | null;
   onToggleThread: (key: string) => void;
   onAddComment: (lineKey: string, text: string) => void;

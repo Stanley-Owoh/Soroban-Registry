@@ -1,4 +1,3 @@
-import React from "react";
 import {
   PieChart,
   Pie,
@@ -6,22 +5,22 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-} from "recharts";
-import { StatsResponse } from "@/types/stats";
+} from 'recharts';
+import { StatsResponse } from '@/types/stats';
 
 interface CategoryPieChartProps {
-  data: StatsResponse["contractsByCategory"];
+  data: StatsResponse['contractsByCategory'];
 }
 
 const COLORS = [
-  "#0088FE",
-  "#00C49F",
-  "#FFBB28",
-  "#FF8042",
-  "#8884d8",
-  "#82ca9d",
-  "#ffc658",
-  "#d0ed57",
+  '#0088FE',
+  '#00C49F',
+  '#FFBB28',
+  '#FF8042',
+  '#8884d8',
+  '#82ca9d',
+  '#ffc658',
+  '#d0ed57',
 ];
 
 const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data }) => {
@@ -52,10 +51,10 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data }) => {
             </Pie>
             <Tooltip
               contentStyle={{
-                backgroundColor: "rgba(255, 255, 255, 0.9)",
-                borderRadius: "8px",
-                border: "none",
-                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                borderRadius: '8px',
+                border: 'none',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
               }}
             />
             <Legend verticalAlign="bottom" height={36} />

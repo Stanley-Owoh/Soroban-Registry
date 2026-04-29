@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import type { ReactNode } from "react";
 import { MessageSquarePlus } from "lucide-react";
 
+type AnnotationLocation = { line?: number; abi_path?: string };
+
 interface AnnotationLayerProps {
-  children: React.ReactNode;
-  onAnnotate: (location: { line?: number; abi_path?: string }) => void;
-  annotations: any[];
+  children: ReactNode;
+  onAnnotate: (location: AnnotationLocation) => void;
+  annotations: AnnotationLocation[];
 }
 
 export default function AnnotationLayer({
@@ -33,10 +35,10 @@ export function AnnotationWrapper({
   onAnnotate,
   hasAnnotation,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   line?: number;
   abiPath?: string;
-  onAnnotate: (loc: any) => void;
+  onAnnotate: (loc: AnnotationLocation) => void;
   hasAnnotation?: boolean;
 }) {
   return (

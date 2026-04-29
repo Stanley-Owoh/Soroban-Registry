@@ -27,7 +27,7 @@ export function useNavbar() {
 
   // Close mobile menu on route change
   useEffect(() => {
-    setMobileOpen(false);
+    queueMicrotask(() => setMobileOpen(false));
   }, [pathname]);
 
   // Prevent body scroll when mobile drawer open

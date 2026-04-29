@@ -1,6 +1,6 @@
 "use client";
 
-import React, {
+import {
   useCallback,
   useEffect,
   useMemo,
@@ -17,7 +17,8 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { api, type Contract, type ContractSearchParams } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { Contract, ContractSearchParams } from "@/types";
 import ContractCard from "@/components/ContractCard";
 import ContractCardSkeleton from "@/components/ContractCardSkeleton";
 
@@ -435,7 +436,7 @@ export function AdvancedContractSearch() {
 
   // Initialise from URL on mount only.
   const [filters, setFilters] = useState<AdvancedSearchFilters>(() =>
-    urlParamsToFilters(searchParams),
+    urlParamsToFilters(new URLSearchParams(searchParams?.toString() ?? "")),
   );
 
   // Debounced query sent to API — prevents firing on every keystroke.
@@ -444,14 +445,10 @@ export function AdvancedContractSearch() {
 
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showSavedSearches, setShowSavedSearches] = useState(false);
-  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const [savedSearches, setSavedSearches] =
+    useState<SavedSearch[]>(loadSavedSearches);
   const savedSearchesButtonRef = useRef<HTMLButtonElement>(null);
   const savedSearchesPanelRef = useRef<HTMLDivElement>(null);
-
-  // Load saved searches from localStorage once.
-  useEffect(() => {
-    setSavedSearches(loadSavedSearches());
-  }, []);
 
   // Close saved-searches panel when clicking outside.
   useEffect(() => {

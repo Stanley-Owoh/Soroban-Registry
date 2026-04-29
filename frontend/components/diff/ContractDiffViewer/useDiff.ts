@@ -11,6 +11,7 @@ import {
   buildPatch,
   downloadPatch,
 } from "./utils";
+import type { DiffComment } from "./CommentThread";
 
 export function useDiff(contractId: string, contractName?: string) {
   const [viewMode, setViewMode] = useState<"unified" | "side-by-side">(
@@ -18,7 +19,7 @@ export function useDiff(contractId: string, contractName?: string) {
   );
   const [fromVersion, setFromVersion] = useState<string>("");
   const [toVersion, setToVersion] = useState<string>("");
-  const [comments, setComments] = useState<Record<string, any[]>>({});
+  const [comments, setComments] = useState<Record<string, DiffComment[]>>({});
   const [openThread, setOpenThread] = useState<string | null>(null);
 
   const versionsQuery = useQuery({

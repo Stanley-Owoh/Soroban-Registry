@@ -1,9 +1,8 @@
-"use client";
+'use client';
 
-import React from "react";
-import { useFormContext } from "react-hook-form";
-import { FormTextarea } from "@/components/Form";
-import type { VerificationDraft } from "@/types/verification";
+import { useFormContext } from 'react-hook-form';
+import { FormTextarea } from '@/components/Form';
+import type { VerificationDraft } from '@/types/verification';
 
 export default function DescriptionStep() {
   const {
@@ -17,12 +16,9 @@ export default function DescriptionStep() {
         label="Purpose"
         placeholder="What does this contract do?"
         rows={4}
-        {...register("purpose", {
-          required: "Purpose is required",
-          minLength: {
-            value: 20,
-            message: "Please provide at least 20 characters",
-          },
+        {...register('purpose', {
+          required: 'Purpose is required',
+          minLength: { value: 20, message: 'Please provide at least 20 characters' },
         })}
         error={errors.purpose?.message}
       />
@@ -31,15 +27,13 @@ export default function DescriptionStep() {
         label="Use Case"
         placeholder="How will users interact with it?"
         rows={4}
-        {...register("useCase", {
-          required: "Use case is required",
-          minLength: {
-            value: 20,
-            message: "Please provide at least 20 characters",
-          },
+        {...register('useCase', {
+          required: 'Use case is required',
+          minLength: { value: 20, message: 'Please provide at least 20 characters' },
         })}
         error={errors.useCase?.message}
       />
     </div>
   );
 }
+

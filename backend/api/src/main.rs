@@ -16,6 +16,7 @@ mod backup_handlers;
 mod backup_routes;
 mod batch_verify_handlers;
 mod breaking_changes;
+mod bulk_operations_handlers;
 mod cache;
 mod canary_handlers;
 mod collaborative_reviews;

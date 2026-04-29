@@ -1,5 +1,4 @@
-import React from "react";
-import FormField from "./FormField";
+import FormField from './FormField';
 
 type Option = { value: string | number; label: string };
 
@@ -13,27 +12,12 @@ type Props = {
   description?: string;
 };
 
-export default function FormRadioGroup({
-  name,
-  label,
-  options,
-  value,
-  onChange,
-  error,
-  description,
-}: Props) {
+export default function FormRadioGroup({ name, label, options, value, onChange, error, description }: Props) {
   return (
     <FormField label={label} id={name} error={error} description={description}>
-      <div
-        role="radiogroup"
-        aria-labelledby={name}
-        className="flex flex-col gap-2"
-      >
+      <div role="radiogroup" aria-labelledby={name} className="flex flex-col gap-2">
         {options.map((opt) => (
-          <label
-            key={String(opt.value)}
-            className="inline-flex items-center gap-2"
-          >
+          <label key={String(opt.value)} className="inline-flex items-center gap-2">
             <input
               type="radio"
               name={name}

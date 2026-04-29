@@ -81,7 +81,7 @@ impl ValidationRule {
 /// request passing through the route it wraps.
 ///
 /// Validation failures are collected and returned as a single 400 JSON response
-/// using the same `ValidationErrorResponse` shape as `ValidatedJson<T>`.
+/// in the standard `ApiError` envelope (see `docs/ERROR_CODES.md`).
 ///
 /// # Example
 ///
@@ -124,19 +124,10 @@ pub fn validate_request(
             }
 
             if !errors.is_empty() {
-                let body =
-                    super::extractors::ValidationErrorResponse::new(errors, correlation_id.clone());
-                let json = serde_json::to_vec(&body).unwrap_or_default();
-                let mut response = Response::builder()
-                    .status(StatusCode::BAD_REQUEST)
-                    .header("Content-Type", "application/json")
-                    .body(axum::body::Body::from(json))
-                    .unwrap_or_default();
-                crate::request_tracing::attach_request_id_headers(
-                    response.headers_mut(),
-                    &correlation_id,
+                let _ = correlation_id; // tracing id is attached by ApiError::into_response
+                return axum::response::IntoResponse::into_response(
+                    super::extractors::ValidationError::new(errors),
                 );
-                return response;
             }
 
             next.run(req).await

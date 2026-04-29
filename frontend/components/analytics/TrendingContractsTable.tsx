@@ -1,18 +1,9 @@
-import React from "react";
-import Link from "next/link";
-import { ArrowUpRight, Minus, ArrowDownRight } from "lucide-react";
+import Link from 'next/link';
+import { ArrowUpRight, Minus, ArrowDownRight } from 'lucide-react';
 
-export default function TrendingContractsTable({
-  data,
-}: {
-  data: Record<string, unknown>[];
-}) {
+export default function TrendingContractsTable({ data }: { data: Record<string, unknown>[] }) {
   if (!data || data.length === 0) {
-    return (
-      <div className="h-32 flex items-center justify-center text-muted-foreground text-sm border-t border-border">
-        No trending contracts available
-      </div>
-    );
+    return <div className="h-32 flex items-center justify-center text-muted-foreground text-sm border-t border-border">No trending contracts available</div>;
   }
 
   return (
@@ -36,11 +27,9 @@ export default function TrendingContractsTable({
             let percentChange = 0;
 
             if (previous > 0) {
-              percentChange = Math.round(
-                ((current - previous) / previous) * 100,
-              );
+              percentChange = Math.round(((current - previous) / previous) * 100);
             } else if (current > 0) {
-              percentChange = 100;
+               percentChange = 100;
             }
 
             if (current > previous) {
@@ -52,24 +41,13 @@ export default function TrendingContractsTable({
             }
 
             return (
-              <tr
-                key={contract.id as React.Key}
-                className="hover:bg-muted/30 transition-colors"
-              >
-                <td className="px-5 py-4 font-semibold text-foreground">
-                  #{idx + 1}
-                </td>
+              <tr key={contract.id as React.Key} className="hover:bg-muted/30 transition-colors">
+                <td className="px-5 py-4 font-semibold text-foreground">#{idx + 1}</td>
                 <td className="px-5 py-4">
-                  <Link
-                    href={`/contracts/${contract.id as string}`}
-                    className="font-semibold text-foreground hover:text-primary transition-colors pr-8"
-                  >
-                    {(contract.name as string) || "Unnamed"}
+                  <Link href={`/contracts/${contract.id as string}`} className="font-semibold text-foreground hover:text-primary transition-colors pr-8">
+                    {(contract.name as string) || 'Unnamed'}
                   </Link>
-                  <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                    {(contract.contract_id as string).substring(0, 8)}...
-                    {(contract.contract_id as string).slice(-8)}
-                  </p>
+                  <p className="text-xs text-muted-foreground font-mono mt-0.5">{(contract.contract_id as string).substring(0, 8)}...{(contract.contract_id as string).slice(-8)}</p>
                 </td>
                 <td className="px-5 py-4">
                   <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
@@ -80,12 +58,9 @@ export default function TrendingContractsTable({
                   {current.toLocaleString()}
                 </td>
                 <td className="px-5 py-4">
-                  <div
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${trendClass}`}
-                  >
+                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${trendClass}`}>
                     {trendIcon}
-                    {percentChange > 0 ? "+" : ""}
-                    {percentChange}%
+                    {percentChange > 0 ? '+' : ''}{percentChange}%
                   </div>
                 </td>
               </tr>

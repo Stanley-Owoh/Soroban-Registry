@@ -1,18 +1,17 @@
-"use client";
+'use client';
 
-import React from "react";
-import Link from "next/link";
-import type { DeprecationInfo } from "@/types";
-import { AlertTriangle, ArrowUpRight } from "lucide-react";
+import Link from 'next/link';
+import type { DeprecationInfo } from '@/types';
+import { AlertTriangle, ArrowUpRight } from 'lucide-react';
 
 function formatDate(value?: string | null) {
-  if (!value) return "—";
+  if (!value) return '—';
   return new Date(value).toLocaleDateString();
 }
 
 function formatCountdown(days?: number | null) {
-  if (days === null || days === undefined) return "—";
-  if (days <= 0) return "0 days";
+  if (days === null || days === undefined) return '—';
+  if (days <= 0) return '0 days';
   return `${days} days`;
 }
 
@@ -21,13 +20,13 @@ type Props = {
 };
 
 export default function DeprecationBanner({ info }: Props) {
-  if (info.status === "active") return null;
+  if (info.status === 'active') return null;
 
-  const isRetired = info.status === "retired";
-  const badge = isRetired ? "Retired" : "Deprecated";
+  const isRetired = info.status === 'retired';
+  const badge = isRetired ? 'Retired' : 'Deprecated';
   const headline = isRetired
-    ? "This contract has been retired."
-    : "This contract is deprecated and scheduled for retirement.";
+    ? 'This contract has been retired.'
+    : 'This contract is deprecated and scheduled for retirement.';
 
   return (
     <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-900 px-5 py-4">
@@ -38,9 +37,7 @@ export default function DeprecationBanner({ info }: Props) {
           </div>
           <div>
             <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide">
-              <span className="rounded-full bg-amber-200 px-2 py-1">
-                {badge}
-              </span>
+              <span className="rounded-full bg-amber-200 px-2 py-1">{badge}</span>
               <span>Retires {formatDate(info.retirement_at)}</span>
             </div>
             <h3 className="text-base font-semibold mt-2">{headline}</h3>

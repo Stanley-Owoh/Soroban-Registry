@@ -224,7 +224,9 @@ export function logError(error: Error, context?: Record<string, unknown>) {
     stack: error.stack,
     category: normalized.category,
     severity: normalized.severity,
-    ...safeContext,
+    ...(typeof safeContext === "object" && safeContext !== null
+      ? safeContext
+      : {}),
   });
 
   if (errorLogger) {

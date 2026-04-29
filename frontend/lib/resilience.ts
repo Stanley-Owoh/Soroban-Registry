@@ -140,6 +140,15 @@ class CircuitBreaker {
   public getState() {
     return this.state;
   }
+
+  public getDebugState() {
+    return {
+      state: this.state,
+      failures: this.failures,
+      openedAt: this.openedAt,
+      trials: this.trials,
+    };
+  }
 }
 
 // Keep breakers per-endpoint in-memory
@@ -163,15 +172,7 @@ export function getAllBreakerStates() {
     }
   > = {};
   for (const [k, b] of breakers.entries()) {
-    out[k] = {
-      state: b.getState(),
-      // @ts-ignore access private for debug
-      failures: (b as any).failures ?? 0,
-      // @ts-ignore
-      openedAt: (b as any).openedAt ?? null,
-      // @ts-ignore
-      trials: (b as any).trials ?? 0,
-    };
+    out[k] = b.getDebugState();
   }
   return out;
 }
@@ -196,13 +197,11 @@ export async function resilientCall<T>(
 
   if (!breaker.allowRequest()) {
     const err = new Error("Service temporarily unavailable (circuit open)");
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
     err.name = "CircuitOpenError";
     throw err;
   }
 
-  let lastErr: any = null;
+  let lastErr: unknown = null;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const res = await fn();
@@ -218,8 +217,8 @@ export async function resilientCall<T>(
               body: JSON.stringify({
                 endpoint: endpointLabel,
                 state: "closed",
-                failures: (breaker as any).failures ?? 0,
-                opened_at: (breaker as any).openedAt ?? null,
+                failures: breaker.getDebugState().failures,
+                opened_at: breaker.getDebugState().openedAt,
               }),
               keepalive: true,
             },
@@ -248,8 +247,8 @@ export async function resilientCall<T>(
               body: JSON.stringify({
                 endpoint: endpointLabel,
                 state: "open",
-                failures: (breaker as any).failures ?? 0,
-                opened_at: (breaker as any).openedAt ?? null,
+                failures: breaker.getDebugState().failures,
+                opened_at: breaker.getDebugState().openedAt,
               }),
               keepalive: true,
             },
@@ -261,7 +260,6 @@ export async function resilientCall<T>(
 
       if (attempt < maxRetries) {
         const delay = backoffDelay(retryBase, attempt);
-        // eslint-disable-next-line no-await-in-loop
         await sleep(delay);
         continue;
       }

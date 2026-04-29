@@ -32,7 +32,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const root = window.document.documentElement;
     const isDark =
       theme === "dark" || (theme === "system" && getSystemTheme() === "dark");
-    setResolvedTheme(isDark ? "dark" : "light");
+    queueMicrotask(() => setResolvedTheme(isDark ? "dark" : "light"));
 
     if (isDark) root.classList.add("dark");
     else root.classList.remove("dark");

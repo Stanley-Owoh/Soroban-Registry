@@ -54,115 +54,6 @@ const maintenanceStatus: { is_maintenance: boolean; current_window: null } = {
   current_window: null,
 };
 
-function normalizeRawSourceUrl(input: string): string {
-  try {
-    const url = new URL(input);
-    if (url.hostname === "github.com") {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const blobIdx = parts.indexOf("blob");
-      if (parts.length >= 5 && blobIdx === 2) {
-        const owner = parts[0];
-        const repo = parts[1];
-        const branch = parts[3];
-        const path = parts.slice(4).join("/");
-        return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
-      }
-    }
-  } catch {
-    return input;
-  }
-  return input;
-}
-
-const RUST_KEYWORDS = new Set([
-  "fn",
-  "let",
-  "mut",
-  "pub",
-  "struct",
-  "enum",
-  "impl",
-  "trait",
-  "use",
-  "mod",
-  "match",
-  "if",
-  "else",
-  "for",
-  "while",
-  "loop",
-  "return",
-  "async",
-  "await",
-  "where",
-  "crate",
-  "Self",
-  "self",
-  "const",
-  "static",
-  "type",
-  "move",
-  "ref",
-  "in",
-  "as",
-]);
-
-function HighlightedRustCode({ code, query }: { code: string; query: string }) {
-  const lowered = query.trim().toLowerCase();
-  const filteredLines = useMemo(() => {
-    const lines = code.split("\n");
-    if (!lowered) return lines;
-    return lines.filter((line) => line.toLowerCase().includes(lowered));
-  }, [code, lowered]);
-
-  return (
-    <pre className="overflow-x-auto rounded-xl border border-border bg-card p-4 text-xs leading-6 font-mono text-foreground">
-      {filteredLines.map((line, idx) => {
-        const parts = line.split(/(\s+)/);
-        let inComment = false;
-        return (
-          <div key={`${idx}-${line.slice(0, 16)}`}>
-            {parts.map((token, tokenIdx) => {
-              if (token.startsWith("//")) inComment = true;
-              if (/^\s+$/.test(token)) {
-                return <span key={tokenIdx}>{token}</span>;
-              }
-
-              const tokenWord = token.replace(/[^A-Za-z0-9_]/g, "");
-              const isKeyword = RUST_KEYWORDS.has(tokenWord);
-              const matchesQuery =
-                lowered && token.toLowerCase().includes(lowered);
-
-              let className = "";
-              if (inComment) className = "text-emerald-400";
-              else if (token.startsWith('"') || token.endsWith('"'))
-                className = "text-amber-300";
-              else if (isKeyword) className = "text-sky-300 font-semibold";
-
-              if (matchesQuery) {
-                return (
-                  <mark
-                    key={tokenIdx}
-                    className={`rounded px-0.5 bg-primary/30 text-foreground ${className}`}
-                  >
-                    {token}
-                  </mark>
-                );
-              }
-
-              return (
-                <span key={tokenIdx} className={className}>
-                  {token}
-                </span>
-              );
-            })}
-          </div>
-        );
-      })}
-    </pre>
-  );
-}
-
 function ContractDetailsContent() {
   const params = useParams<{ id?: string | string[] }>() ?? {};
   const searchParams = useSearchParams();
@@ -949,7 +840,7 @@ function ContractDetailsContent() {
                 )}
                 <div className="sm:col-span-2">
                   <dt className="text-muted-foreground">Report</dt>
-                  <dd>
+<dd>
                     <Link
                       href="/verification-status"
                       className="text-primary hover:underline"

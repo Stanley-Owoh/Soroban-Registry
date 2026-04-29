@@ -1,10 +1,5 @@
-import React from "react";
-import FormField from "./FormField";
-import {
-  getFormControlId,
-  getSelectClassName,
-  getAriaDescribedBy,
-} from "@/lib/utils/form";
+import FormField from './FormField';
+import { getFormControlId, getSelectClassName, getAriaDescribedBy } from '@/lib/utils/form';
 
 type Option = { value: string | number; label: string };
 
@@ -15,14 +10,7 @@ type Props = React.SelectHTMLAttributes<HTMLSelectElement> & {
   description?: string;
 };
 
-export default function FormSelect({
-  label,
-  options,
-  error,
-  description,
-  className,
-  ...rest
-}: Props) {
+export default function FormSelect({ label, options, error, description, className, ...rest }: Props) {
   const id = getFormControlId(rest.id, rest.name);
   const controlClassName = getSelectClassName(className);
   const ariaDescribedBy = getAriaDescribedBy(id, !!error);

@@ -1,15 +1,14 @@
-"use client";
+'use client';
 
-import React from "react";
-import { Check } from "lucide-react";
-import type { VerificationStepKey } from "@/types/verification";
+import { Check } from 'lucide-react';
+import type { VerificationStepKey } from '@/types/verification';
 
 const LABELS: Record<VerificationStepKey, string> = {
-  contractInfo: "Contract Info",
-  description: "Description",
-  securityClaims: "Security Claims",
-  documents: "Documents",
-  review: "Review",
+  contractInfo: 'Contract Info',
+  description: 'Description',
+  securityClaims: 'Security Claims',
+  documents: 'Documents',
+  review: 'Review',
 };
 
 export default function Stepper(props: {
@@ -32,44 +31,32 @@ export default function Stepper(props: {
               type="button"
               onClick={isClickable ? () => onStepClick(idx) : undefined}
               className={
-                "flex items-center gap-2 rounded-full pr-3 transition-colors " +
-                (isClickable
-                  ? "hover:bg-accent cursor-pointer"
-                  : "cursor-default") +
-                (isActive ? " bg-primary/10" : "")
+                'flex items-center gap-2 rounded-full pr-3 transition-colors ' +
+                (isClickable ? 'hover:bg-accent cursor-pointer' : 'cursor-default') +
+                (isActive ? ' bg-primary/10' : '')
               }
-              aria-current={isActive ? "step" : undefined}
+              aria-current={isActive ? 'step' : undefined}
               aria-disabled={!isClickable}
             >
               <span
                 className={
-                  "w-7 h-7 rounded-full border flex items-center justify-center text-xs font-semibold " +
-                  (isComplete
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "") +
-                  (isActive ? "border-primary text-primary" : "") +
-                  (!isActive && !isComplete
-                    ? "border-border text-muted-foreground bg-card"
-                    : "")
+                  'w-7 h-7 rounded-full border flex items-center justify-center text-xs font-semibold ' +
+                  (isComplete ? 'bg-primary text-primary-foreground border-primary' : '') +
+                  (isActive ? 'border-primary text-primary' : '') +
+                  (!isActive && !isComplete ? 'border-border text-muted-foreground bg-card' : '')
                 }
               >
                 {isComplete ? <Check className="w-4 h-4" /> : idx + 1}
               </span>
-              <span
-                className={
-                  "text-xs sm:text-sm font-medium " +
-                  (isActive ? "text-foreground" : "text-muted-foreground")
-                }
-              >
+              <span className={'text-xs sm:text-sm font-medium ' + (isActive ? 'text-foreground' : 'text-muted-foreground')}>
                 {LABELS[step]}
               </span>
             </button>
-            {idx < steps.length - 1 && (
-              <span className="hidden sm:block w-8 h-px bg-border" />
-            )}
+            {idx < steps.length - 1 && <span className="hidden sm:block w-8 h-px bg-border" />}
           </li>
         );
       })}
     </ol>
   );
 }
+

@@ -1,28 +1,30 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import { useEffect, type RefObject } from "react";
 import * as d3 from "d3";
-import { GraphNode, GraphEdge } from "@/types";
-import { SimNode, SimLink } from "./useDependencyGraph";
+import type { GraphNode, GraphEdge } from "@/lib/api";
+import type {
+  EdgeTooltipState,
+  SimLink,
+  SimNode,
+  TooltipState,
+} from "./useDependencyGraph";
 
 interface GraphSVGProps {
   nodes: GraphNode[];
   edges: GraphEdge[];
   dependentCounts: Map<string, number>;
   resolvedTheme: string;
-  svgRef: React.RefObject<SVGSVGElement | null>;
-  gRef: React.RefObject<d3.Selection<
-    SVGGElement,
-    unknown,
-    null,
-    undefined
-  > | null>;
-  zoomRef: React.RefObject<d3.ZoomBehavior<SVGSVGElement, unknown> | null>;
-  setTooltip: (state: any) => void;
-  setEdgeTooltip: (state: any) => void;
+  svgRef: RefObject<SVGSVGElement | null>;
+  onGraphReady: (
+    graph: d3.Selection<SVGGElement, unknown, null, undefined> | null,
+  ) => void;
+  onZoomReady: (zoom: d3.ZoomBehavior<SVGSVGElement, unknown> | null) => void;
+  setTooltip: (state: TooltipState | null) => void;
+  setEdgeTooltip: (state: EdgeTooltipState | null) => void;
   selectedNode: GraphNode | null;
   onNodeClick?: (node: GraphNode | null) => void;
-  pinnedRef: React.RefObject<Set<string>>;
+  pinnedRef: RefObject<Set<string>>;
   isLargeGraph: boolean;
   isVeryLargeGraph: boolean;
 }
@@ -43,8 +45,8 @@ export function GraphSVG({
   dependentCounts,
   resolvedTheme,
   svgRef,
-  gRef,
-  zoomRef,
+  onGraphReady,
+  onZoomReady,
   setTooltip,
   setEdgeTooltip,
   selectedNode,
@@ -80,7 +82,7 @@ export function GraphSVG({
       .attr("fill", resolvedTheme === "dark" ? "#6b7280" : "#9ca3af");
 
     const g = svg.append("g").attr("class", "graph-root");
-    (gRef as any).current = g;
+    onGraphReady(g);
 
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
@@ -89,7 +91,7 @@ export function GraphSVG({
         g.attr("transform", event.transform.toString());
       });
 
-    (zoomRef as any).current = zoom;
+    onZoomReady(zoom);
     svg.call(zoom).on("dblclick.zoom", null);
 
     const simNodes: SimNode[] = nodes.map((n) => {
@@ -168,7 +170,45 @@ export function GraphSVG({
       .append("circle")
       .attr("r", (d) => d.radius)
       .attr("fill", (d) => nodeColor(d.data))
-      .attr("fill-opacity", 0.85);
+      .attr("fill-opacity", 0.85)
+      .attr("stroke", (d) =>
+        selectedNode?.id === d.id ? "currentColor" : "transparent",
+      )
+      .attr("stroke-width", (d) => (selectedNode?.id === d.id ? 3 : 0));
+
+    nodeEls
+      .on("mouseenter", (event, d) => {
+        setTooltip({
+          x: event.clientX,
+          y: event.clientY,
+          node: d.data,
+          dependents: dependentCounts.get(d.id) ?? 0,
+        });
+      })
+      .on("mouseleave", () => setTooltip(null))
+      .on("click", (event, d) => {
+        event.stopPropagation();
+        if (pinnedRef.current.has(d.id)) {
+          pinnedRef.current.delete(d.id);
+        } else {
+          pinnedRef.current.add(d.id);
+        }
+        onNodeClick?.(d.data);
+      });
+
+    linkEls
+      .on("mouseenter", (event, d) => {
+        const source = d.source as SimNode;
+        const target = d.target as SimNode;
+        setEdgeTooltip({
+          x: event.clientX,
+          y: event.clientY,
+          edge: d.data,
+          sourceName: source.data.name,
+          targetName: target.data.name,
+        });
+      })
+      .on("mouseleave", () => setEdgeTooltip(null));
 
     if (!isLargeGraph) {
       nodeEls
@@ -192,6 +232,8 @@ export function GraphSVG({
 
     return () => {
       simulation.stop();
+      onGraphReady(null);
+      onZoomReady(null);
     };
   }, [
     nodes,
@@ -200,6 +242,14 @@ export function GraphSVG({
     resolvedTheme,
     isLargeGraph,
     isVeryLargeGraph,
+    onGraphReady,
+    onZoomReady,
+    onNodeClick,
+    pinnedRef,
+    selectedNode,
+    setEdgeTooltip,
+    setTooltip,
+    svgRef,
   ]);
 
   return (

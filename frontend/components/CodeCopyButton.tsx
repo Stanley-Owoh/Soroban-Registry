@@ -4,7 +4,7 @@ import type { KeyboardEvent } from "react";
 import { Check, Copy } from "lucide-react";
 
 interface CodeCopyButtonProps {
-  onCopy: () => void | Promise<void>;
+  onCopy: () => void | Promise<void> | Promise<boolean>;
   copied: boolean;
   disabled?: boolean;
   idleLabel?: string;

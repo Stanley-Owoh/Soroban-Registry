@@ -1,7 +1,6 @@
 "use client";
 
-import React from "react";
-import BreakerDebug from "../../../components/BreakerDebug";
+import BreakerDebug from '../../../components/BreakerDebug';
 
 export default function Page() {
   return (

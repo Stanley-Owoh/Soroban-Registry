@@ -15,7 +15,6 @@ describe("resilientCall", () => {
 
     const breaker = getBreaker("test-retry");
     // reset for isolation
-    // @ts-ignore
     breaker.reset();
   });
 
@@ -41,7 +40,6 @@ describe("resilientCall", () => {
     ).rejects.toThrow();
 
     // reset for isolation
-    // @ts-ignore
     breaker.reset();
   });
 });

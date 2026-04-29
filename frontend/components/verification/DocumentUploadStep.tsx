@@ -1,7 +1,6 @@
-"use client";
+'use client';
 
-import React from "react";
-import FileUploader from "@/components/verification/FileUploader";
+import FileUploader from '@/components/verification/FileUploader';
 
 export default function DocumentUploadStep(props: {
   files: File[];
@@ -16,8 +15,7 @@ export default function DocumentUploadStep(props: {
     <div className="space-y-3">
       <div className="rounded-2xl border border-border bg-card p-4">
         <p className="text-sm text-muted-foreground">
-          Upload audit reports, architecture docs, threat models, or any
-          supporting materials. At least one document is required.
+          Upload audit reports, architecture docs, threat models, or any supporting materials. At least one document is required.
         </p>
       </div>
 
@@ -33,3 +31,4 @@ export default function DocumentUploadStep(props: {
     </div>
   );
 }
+

@@ -23,7 +23,7 @@ export class WebSocketService {
   }
 
   private getWebSocketUrl(): string {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
     return baseUrl.replace(/^http/, "ws").replace(/\/$/, "");
   }
 

@@ -10,8 +10,8 @@ import acceptLanguage from 'accept-language';
 
 acceptLanguage.languages(languages);
 
-const GA_PROVIDER = process.env.NEXT_PUBLIC_ANALYTICS_PROVIDER || 'ga';
-const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
+const GA_PROVIDER = process.env.NEXT_PUBLIC_ANALYTICS_PROVIDER || 'ga'
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://soroban-registry.com"),
@@ -67,7 +67,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
   let lng = cookieStore.get(cookieName)?.value;
-
+  
   if (!lng) {
     const headersList = await headers();
     lng = acceptLanguage.get(headersList.get('accept-language')) || fallbackLng;
@@ -78,7 +78,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={lng} dir={dir} suppressHydrationWarning>
       <head>
-        {/* Theme detection script — runs before paint to prevent flash */}
+        {/* Theme detection script to prevent flash */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -96,8 +96,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             `,
           }}
         />
-
-        {/* Google Analytics — only loaded when GA provider is selected and GA_ID is set */}
+        {/* Only load GA script if GA is selected */}
         {GA_PROVIDER === 'ga' && GA_ID && (
           <>
             <Script
@@ -123,12 +122,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Providers>
           {children}
 
-          {/* Tracks page views on every route change */}
+          {/* called on every page to track page views */}
           <PageViewTracker />
-          {/* Tracks external link clicks, form submissions, and client runtime errors */}
+          {/* tracks external link clicks, form submissions, and client runtime errors */}
           <UserInteractionTracker />
         </Providers>
       </body>
     </html>
-  );
+  )
 }

@@ -117,6 +117,7 @@ export type MaturityLevel = "alpha" | "beta" | "stable" | "mature" | "legacy";
 
 export interface ContractSearchParams {
   query?: string;
+  contract_id?: string;
   network?: Network;
   networks?: Network[];
   verified_only?: boolean;
@@ -159,3 +160,56 @@ export interface DeprecationInfo {
   days_remaining?: number | null;
   dependents_notified: number;
 }
+
+export interface ContractInteraction {
+  contract_id: string;
+  method: string;
+  caller: string;
+  args: Record<string, unknown>;
+  result: unknown;
+  ledger_sequence: number;
+  transaction_hash: string;
+  timestamp: string;
+}
+
+export interface InteractionsQueryParams {
+  method?: string;
+  caller?: string;
+  account?: string;
+  from_ledger?: number;
+  to_ledger?: number;
+  from_date?: string;
+  to_date?: string;
+  from_timestamp?: string;
+  to_timestamp?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface InteractionsListResponse {
+  interactions: ContractInteraction[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ContractInteractionResponse {
+  contract_id: string;
+  network: Network;
+  total_count: number;
+  recent_interactions: ContractInteraction[];
+  top_methods: Array<{ method: string; count: number }>;
+  top_callers: Array<{ caller: string; count: number }>;
+}
+
+export type PublishRequest = {
+  contract_id: string;
+  publisher_id: string;
+  network: Network;
+  wasm_hash: string;
+  name?: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  logo_url?: string;
+};

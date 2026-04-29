@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { getAllBreakerStates } from "../lib/resilience";
 
-export default function BreakerDebug(): JSX.Element {
-  const [states, setStates] = useState<Record<string, any>>({});
+export default function BreakerDebug(): ReactElement {
+  const [states, setStates] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
-    setStates(getAllBreakerStates());
+    queueMicrotask(() => setStates(getAllBreakerStates()));
     const id = setInterval(() => setStates(getAllBreakerStates()), 1000);
     return () => clearInterval(id);
   }, []);

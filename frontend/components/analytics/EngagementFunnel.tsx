@@ -1,19 +1,18 @@
-"use client";
+'use client';
 
-import React from "react";
-import { FunnelStage } from "@/types/analytics";
-import { Users } from "lucide-react";
+import { FunnelStage } from '@/types/analytics';
+import { Users } from 'lucide-react';
 
 interface EngagementFunnelProps {
   data: FunnelStage[];
 }
 
 const STAGE_COLORS = [
-  { bg: "#3b82f6", light: "rgba(59,130,246,0.12)" },
-  { bg: "#8b5cf6", light: "rgba(139,92,246,0.12)" },
-  { bg: "#06b6d4", light: "rgba(6,182,212,0.12)" },
-  { bg: "#10b981", light: "rgba(16,185,129,0.12)" },
-  { bg: "#f59e0b", light: "rgba(245,158,11,0.12)" },
+  { bg: '#3b82f6', light: 'rgba(59,130,246,0.12)' },
+  { bg: '#8b5cf6', light: 'rgba(139,92,246,0.12)' },
+  { bg: '#06b6d4', light: 'rgba(6,182,212,0.12)' },
+  { bg: '#10b981', light: 'rgba(16,185,129,0.12)' },
+  { bg: '#f59e0b', light: 'rgba(245,158,11,0.12)' },
 ];
 
 const EngagementFunnel: React.FC<EngagementFunnelProps> = ({ data }) => {
@@ -22,9 +21,7 @@ const EngagementFunnel: React.FC<EngagementFunnelProps> = ({ data }) => {
   return (
     <div className="bg-card rounded-2xl border border-border p-6 flex flex-col h-full">
       <div className="mb-5">
-        <h3 className="text-lg font-semibold text-foreground">
-          User Engagement Funnel
-        </h3>
+        <h3 className="text-lg font-semibold text-foreground">User Engagement Funnel</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
           Conversion from visitors to deployed contracts
         </p>
@@ -36,16 +33,13 @@ const EngagementFunnel: React.FC<EngagementFunnelProps> = ({ data }) => {
           {data.map((stage, i) => {
             const widthPct = (stage.users / maxUsers) * 100;
             const dropOff = i > 0 ? data[i - 1].users - stage.users : 0;
-            const dropPct =
-              i > 0 ? Math.round((dropOff / data[i - 1].users) * 100) : 0;
+            const dropPct = i > 0 ? Math.round((dropOff / data[i - 1].users) * 100) : 0;
             const color = STAGE_COLORS[i % STAGE_COLORS.length];
 
             return (
               <div key={stage.stage} className="group relative">
                 <div className="flex items-center gap-3 mb-1">
-                  <span className="text-xs text-muted-foreground w-28 shrink-0">
-                    {stage.stage}
-                  </span>
+                  <span className="text-xs text-muted-foreground w-28 shrink-0">{stage.stage}</span>
                   <div className="flex-1 h-8 rounded-md overflow-hidden bg-muted/40 relative">
                     <div
                       className="h-full rounded-md flex items-center px-3 transition-all duration-500"

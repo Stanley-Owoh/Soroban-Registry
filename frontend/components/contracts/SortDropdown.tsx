@@ -72,7 +72,7 @@ export function SortDropdown({
 
   useEffect(() => {
     const index = options.findIndex((option) => option.value === value);
-    setFocusedIndex(index >= 0 ? index : 0);
+    queueMicrotask(() => setFocusedIndex(index >= 0 ? index : 0));
   }, [options, value]);
 
   const toggleOrder = () => {

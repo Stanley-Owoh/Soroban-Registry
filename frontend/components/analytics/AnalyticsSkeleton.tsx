@@ -1,4 +1,3 @@
-import React from "react";
 
 const AnalyticsSkeleton: React.FC = () => (
   <div className="animate-pulse space-y-6">

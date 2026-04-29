@@ -29,7 +29,10 @@ impl FieldError {
     }
 }
 
-/// Validation error response body
+/// Internal helper preserved for unit tests that assert the legacy intermediate
+/// shape used to be produced for validation failures. New code MUST NOT rely on
+/// this struct — HTTP responses are produced by [`ApiError`] (see
+/// `docs/ERROR_CODES.md`).
 #[derive(Debug, Serialize)]
 pub struct ValidationErrorResponse {
     pub error_code: String,
@@ -41,12 +44,7 @@ pub struct ValidationErrorResponse {
 
 impl ValidationErrorResponse {
     pub fn new(errors: Vec<FieldError>, correlation_id: String) -> Self {
-        let error_summary = if errors.len() == 1 {
-            format!("Validation failed for field '{}'", errors[0].field)
-        } else {
-            format!("Validation failed for {} fields", errors.len())
-        };
-
+        let error_summary = validation_summary(&errors);
         Self {
             error_code: "BAD_REQUEST".to_string(),
             message: error_summary,
@@ -61,7 +59,19 @@ impl ValidationErrorResponse {
     }
 }
 
-/// Validation error that converts to an HTTP response
+fn validation_summary(errors: &[FieldError]) -> String {
+    if errors.len() == 1 {
+        format!("Validation failed for field '{}'", errors[0].field)
+    } else {
+        format!("Validation failed for {} fields", errors.len())
+    }
+}
+
+/// Validation error that converts to an HTTP response.
+///
+/// Renders as a standard [`crate::error::ApiError`] envelope (HTTP 400,
+/// `code = "VALIDATION_ERROR"`) so every error response in the API shares the
+/// same JSON shape documented in `docs/ERROR_CODES.md`.
 #[derive(Debug)]
 pub struct ValidationError {
     pub errors: Vec<FieldError>,
@@ -79,17 +89,17 @@ impl ValidationError {
     }
 }
 
+impl From<ValidationError> for crate::error::ApiError {
+    fn from(err: ValidationError) -> Self {
+        let summary = validation_summary(&err.errors);
+        crate::error::ApiError::bad_request("VALIDATION_ERROR", summary)
+            .with_details(json!({ "field_errors": err.errors }))
+    }
+}
+
 impl axum::response::IntoResponse for ValidationError {
     fn into_response(self) -> axum::response::Response {
-        let correlation_id = crate::request_tracing::current_request_id()
-            .unwrap_or_else(crate::request_tracing::generate_request_id);
-        let response = ValidationErrorResponse::new(self.errors, correlation_id.clone());
-        let mut http_response = (StatusCode::BAD_REQUEST, Json(response)).into_response();
-        crate::request_tracing::attach_request_id_headers(
-            http_response.headers_mut(),
-            &correlation_id,
-        );
-        http_response
+        crate::error::ApiError::from(self).into_response()
     }
 }
 
@@ -478,5 +488,35 @@ mod tests {
         let response = ValidationErrorResponse::new(errors, "test-correlation-id".to_string());
 
         assert!(response.message.contains("field 'name'"));
+    }
+
+    #[tokio::test]
+    async fn validation_error_renders_standard_envelope() {
+        use axum::response::IntoResponse;
+
+        let err = ValidationError::new(vec![
+            FieldError::new("contract_id", "is required"),
+            FieldError::new("name", "must be at least 1 character"),
+        ]);
+        let response = err.into_response();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body readable");
+        let value: serde_json::Value =
+            serde_json::from_slice(&body).expect("body is json");
+
+        // Standard ApiError envelope (docs/ERROR_CODES.md)
+        assert_eq!(value["code"], "VALIDATION_ERROR");
+        assert_eq!(value["error_code"], "BAD_REQUEST");
+        assert!(value["request_id"].is_string());
+        assert!(value["correlation_id"].is_string());
+        assert!(value["timestamp"].is_string());
+        assert!(value["message"].as_str().unwrap().contains("2 fields"));
+        assert_eq!(
+            value["details"]["field_errors"].as_array().unwrap().len(),
+            2
+        );
     }
 }

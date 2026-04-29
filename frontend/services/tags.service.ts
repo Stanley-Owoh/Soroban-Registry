@@ -2,7 +2,7 @@ import { Tag } from "../types/tag";
 import { MOCK_TAGS } from "../mocks/tags.mock";
 import { globalCache } from "../utils/cache";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === "true";
 const CACHE_TTL_SECONDS = 300; // 5 minutes
 
