@@ -1,7 +1,13 @@
-'use client';
+"use client";
 
-import { CompatibilityMatrix, CompatibilityEntry, api } from '@/lib/api';
-import { AlertTriangle, CheckCircle, XCircle, Download, FileJson } from 'lucide-react';
+import { CompatibilityMatrix, CompatibilityEntry, api } from "@/lib/api";
+import {
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Download,
+  FileJson,
+} from "lucide-react";
 
 interface CompatibilityMatrixDisplayProps {
   data: CompatibilityMatrix;
@@ -26,9 +32,12 @@ function CompatibilityBadge({ entry }: { entry: CompatibilityEntry }) {
   );
 }
 
-export function CompatibilityMatrixDisplay({ data, contractId }: CompatibilityMatrixDisplayProps) {
-  const csvUrl = api.getCompatibilityExportUrl(contractId, 'csv');
-  const jsonUrl = api.getCompatibilityExportUrl(contractId, 'json');
+export function CompatibilityMatrixDisplay({
+  data,
+  contractId,
+}: CompatibilityMatrixDisplayProps) {
+  const csvUrl = api.getCompatibilityExportUrl(contractId, "csv");
+  const jsonUrl = api.getCompatibilityExportUrl(contractId, "json");
   const targetVersions = data.version_order;
 
   return (
@@ -43,7 +52,10 @@ export function CompatibilityMatrixDisplay({ data, contractId }: CompatibilityMa
           </div>
           <ul className="ml-7 space-y-1">
             {data.warnings.map((warning, index) => (
-              <li key={`${warning}-${index}`} className="text-sm text-amber-700 dark:text-amber-300">
+              <li
+                key={`${warning}-${index}`}
+                className="text-sm text-amber-700 dark:text-amber-300"
+              >
                 {warning}
               </li>
             ))}
@@ -53,7 +65,8 @@ export function CompatibilityMatrixDisplay({ data, contractId }: CompatibilityMa
 
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <p className="text-sm text-muted-foreground">
-          {data.total_pairs} upgrade paths across {data.version_order.length} contract versions.
+          {data.total_pairs} upgrade paths across {data.version_order.length}{" "}
+          contract versions.
         </p>
         <div className="flex gap-2">
           <a
@@ -78,7 +91,9 @@ export function CompatibilityMatrixDisplay({ data, contractId }: CompatibilityMa
       {data.rows.length === 0 ? (
         <div className="rounded-xl border border-border bg-card py-12 text-center">
           <CheckCircle className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">No versions available to compare yet.</p>
+          <p className="text-sm text-muted-foreground">
+            No versions available to compare yet.
+          </p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border">
@@ -89,7 +104,10 @@ export function CompatibilityMatrixDisplay({ data, contractId }: CompatibilityMa
                   From \ To
                 </th>
                 {targetVersions.map((version) => (
-                  <th key={version} className="px-4 py-3 text-center font-semibold text-foreground whitespace-nowrap">
+                  <th
+                    key={version}
+                    className="px-4 py-3 text-center font-semibold text-foreground whitespace-nowrap"
+                  >
                     <span className="inline-block rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs text-primary">
                       v{version}
                     </span>
@@ -99,15 +117,23 @@ export function CompatibilityMatrixDisplay({ data, contractId }: CompatibilityMa
             </thead>
             <tbody className="divide-y divide-border bg-card">
               {data.rows.map((row) => (
-                <tr key={row.source_version} className="hover:bg-accent transition-colors">
+                <tr
+                  key={row.source_version}
+                  className="hover:bg-accent transition-colors"
+                >
                   <td className="sticky left-0 z-10 whitespace-nowrap border-r border-border bg-card px-4 py-3 font-medium text-foreground">
                     <span className="inline-block rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs text-primary">
                       v{row.source_version}
                     </span>
                   </td>
                   {targetVersions.map((targetVersion) => {
-                    const entry = row.targets.find((candidate) => candidate.target_version === targetVersion);
-                    const isDiagonalOrPast = targetVersion === row.source_version || data.version_order.indexOf(targetVersion) <= data.version_order.indexOf(row.source_version);
+                    const entry = row.targets.find(
+                      (candidate) => candidate.target_version === targetVersion,
+                    );
+                    const isDiagonalOrPast =
+                      targetVersion === row.source_version ||
+                      data.version_order.indexOf(targetVersion) <=
+                        data.version_order.indexOf(row.source_version);
 
                     return (
                       <td
@@ -115,9 +141,9 @@ export function CompatibilityMatrixDisplay({ data, contractId }: CompatibilityMa
                         className={`px-4 py-3 text-center ${
                           entry
                             ? entry.is_compatible
-                              ? 'bg-green-50/40 dark:bg-green-900/10'
-                              : 'bg-red-50/40 dark:bg-red-900/10'
-                            : ''
+                              ? "bg-green-50/40 dark:bg-green-900/10"
+                              : "bg-red-50/40 dark:bg-red-900/10"
+                            : ""
                         }`}
                       >
                         {entry ? (
@@ -127,8 +153,8 @@ export function CompatibilityMatrixDisplay({ data, contractId }: CompatibilityMa
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {entry.breaking_change_count > 0
-                                ? `${entry.breaking_change_count} breaking change${entry.breaking_change_count === 1 ? '' : 's'}`
-                                : 'No breaking changes'}
+                                ? `${entry.breaking_change_count} breaking change${entry.breaking_change_count === 1 ? "" : "s"}`
+                                : "No breaking changes"}
                             </div>
                             {entry.breaking_changes.length > 0 && (
                               <details className="text-left">
@@ -146,7 +172,9 @@ export function CompatibilityMatrixDisplay({ data, contractId }: CompatibilityMa
                         ) : isDiagonalOrPast ? (
                           <span className="text-muted-foreground">-</span>
                         ) : (
-                          <span className="text-muted-foreground">Unavailable</span>
+                          <span className="text-muted-foreground">
+                            Unavailable
+                          </span>
                         )}
                       </td>
                     );

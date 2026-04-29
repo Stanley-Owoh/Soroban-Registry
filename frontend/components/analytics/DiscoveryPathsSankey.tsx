@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useRef, useEffect, useState } from 'react';
-import { DiscoveryPaths, SankeyNode } from '@/types/analytics';
+import React, { useRef, useEffect, useState } from "react";
+import { DiscoveryPaths, SankeyNode } from "@/types/analytics";
 
 interface DiscoveryPathsSankeyProps {
   data: DiscoveryPaths;
@@ -28,25 +28,29 @@ interface LayoutLink {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  entry: '#3b82f6',
-  search: '#8b5cf6',
-  filter: '#06b6d4',
-  contract: '#10b981',
-  action: '#f59e0b',
+  entry: "#3b82f6",
+  search: "#8b5cf6",
+  filter: "#06b6d4",
+  contract: "#10b981",
+  action: "#f59e0b",
 };
 
 const NODE_WIDTH = 14;
 const NODE_PAD = 18;
 
 function computeLayout(
-  nodes: DiscoveryPaths['nodes'],
-  links: DiscoveryPaths['links'],
+  nodes: DiscoveryPaths["nodes"],
+  links: DiscoveryPaths["links"],
   width: number,
-  height: number
+  height: number,
 ): { layoutNodes: LayoutNode[]; layoutLinks: LayoutLink[] } {
   // Assign columns by category order
-  const COLUMN_ORDER: SankeyNode['category'][] = [
-    'entry', 'search', 'filter', 'contract', 'action',
+  const COLUMN_ORDER: SankeyNode["category"][] = [
+    "entry",
+    "search",
+    "filter",
+    "contract",
+    "action",
   ];
 
   const nodeMap = new Map<string, LayoutNode>();
@@ -58,7 +62,10 @@ function computeLayout(
     columnGroups.get(col)!.push(n.id);
     nodeMap.set(n.id, {
       ...n,
-      x0: 0, x1: 0, y0: 0, y1: 0,
+      x0: 0,
+      x1: 0,
+      y0: 0,
+      y1: 0,
       value: 0,
     });
   });
@@ -86,13 +93,19 @@ function computeLayout(
 
   COLUMN_ORDER.forEach((cat, colIdx) => {
     const ids = columnGroups.get(colIdx) ?? [];
-    const totalValue = ids.reduce((s, id) => s + (nodeMap.get(id)?.value ?? 0), 0);
+    const totalValue = ids.reduce(
+      (s, id) => s + (nodeMap.get(id)?.value ?? 0),
+      0,
+    );
     const availH = height - NODE_PAD * (ids.length - 1);
     let y = 0;
 
     ids.forEach((id) => {
       const node = nodeMap.get(id)!;
-      const nodeH = Math.max(4, (node.value / Math.max(totalValue, 1)) * availH);
+      const nodeH = Math.max(
+        4,
+        (node.value / Math.max(totalValue, 1)) * availH,
+      );
       node.x0 = colIdx * colWidth;
       node.x1 = node.x0 + NODE_WIDTH;
       node.y0 = y;
@@ -124,17 +137,28 @@ function computeLayout(
     srcExitY.set(l.source, y0 + lw);
     tgtEntryY.set(l.target, y1 + lh);
 
-    return { source: src, target: tgt, value: l.value, y0, y1, width: (lw + lh) / 2 };
+    return {
+      source: src,
+      target: tgt,
+      value: l.value,
+      y0,
+      y1,
+      width: (lw + lh) / 2,
+    };
   });
 
   return { layoutNodes: Array.from(nodeMap.values()), layoutLinks };
 }
 
-const DiscoveryPathsSankey: React.FC<DiscoveryPathsSankeyProps> = ({ data }) => {
+const DiscoveryPathsSankey: React.FC<DiscoveryPathsSankeyProps> = ({
+  data,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ width: 700, height: 340 });
   const [tooltip, setTooltip] = useState<{
-    x: number; y: number; content: string;
+    x: number;
+    y: number;
+    content: string;
   } | null>(null);
 
   useEffect(() => {
@@ -157,7 +181,7 @@ const DiscoveryPathsSankey: React.FC<DiscoveryPathsSankeyProps> = ({ data }) => 
     data.nodes,
     data.links,
     innerW,
-    innerH
+    innerH,
   );
 
   const linkPath = (link: LayoutLink) => {
@@ -172,7 +196,9 @@ const DiscoveryPathsSankey: React.FC<DiscoveryPathsSankeyProps> = ({ data }) => 
   return (
     <div className="bg-card rounded-2xl border border-border p-6 flex flex-col h-full">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-foreground">Contract Discovery Paths</h3>
+        <h3 className="text-lg font-semibold text-foreground">
+          Contract Discovery Paths
+        </h3>
         <p className="text-xs text-muted-foreground mt-0.5">
           How users navigate from entry points to contract actions
         </p>
@@ -181,8 +207,14 @@ const DiscoveryPathsSankey: React.FC<DiscoveryPathsSankeyProps> = ({ data }) => 
       {/* Legend */}
       <div className="flex flex-wrap gap-3 mb-3">
         {Object.entries(CATEGORY_COLORS).map(([cat, color]) => (
-          <div key={cat} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: color }} />
+          <div
+            key={cat}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+          >
+            <span
+              className="w-2.5 h-2.5 rounded-sm"
+              style={{ backgroundColor: color }}
+            />
             <span className="capitalize">{cat}</span>
           </div>
         ))}
@@ -201,7 +233,7 @@ const DiscoveryPathsSankey: React.FC<DiscoveryPathsSankeyProps> = ({ data }) => 
                 key={i}
                 d={linkPath(link)}
                 fill="none"
-                stroke={CATEGORY_COLORS[link.source.category] ?? '#94a3b8'}
+                stroke={CATEGORY_COLORS[link.source.category] ?? "#94a3b8"}
                 strokeWidth={Math.max(1, link.width)}
                 strokeOpacity={0.35}
                 onMouseEnter={(e) => {
@@ -226,7 +258,7 @@ const DiscoveryPathsSankey: React.FC<DiscoveryPathsSankeyProps> = ({ data }) => 
                   y={node.y0}
                   width={NODE_WIDTH}
                   height={Math.max(4, node.y1 - node.y0)}
-                  fill={CATEGORY_COLORS[node.category] ?? '#94a3b8'}
+                  fill={CATEGORY_COLORS[node.category] ?? "#94a3b8"}
                   rx={3}
                   className="cursor-pointer"
                   onMouseEnter={(e) => {

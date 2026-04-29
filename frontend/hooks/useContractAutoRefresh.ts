@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useRealtime } from './useRealtime';
+import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRealtime } from "./useRealtime";
 
 export function useContractAutoRefresh(contractId?: string) {
   const { subscribe } = useRealtime();
@@ -12,31 +12,34 @@ export function useContractAutoRefresh(contractId?: string) {
     if (!contractId) return;
 
     // Subscribe to contract update events
-    const unsubscribe = subscribe('contract_updated', (data: unknown) => {
+    const unsubscribe = subscribe("contract_updated", (data: unknown) => {
       const typedData = data as Record<string, unknown>;
       if (typedData.contractId === contractId) {
         // Invalidate query to trigger refetch
         queryClient.invalidateQueries({
-          queryKey: ['contract', contractId],
+          queryKey: ["contract", contractId],
         });
         queryClient.invalidateQueries({
-          queryKey: ['contract-dependencies', contractId],
+          queryKey: ["contract-dependencies", contractId],
         });
         queryClient.invalidateQueries({
-          queryKey: ['contract-deprecation', contractId],
+          queryKey: ["contract-deprecation", contractId],
         });
       }
     });
 
     // Subscribe to deployment events for new contract information
-    const unsubscribeDeploy = subscribe('contract_deployed', (data: unknown) => {
-      const typedData = data as Record<string, unknown>;
-      if (typedData.contractId === contractId) {
-        queryClient.invalidateQueries({
-          queryKey: ['contract', contractId],
-        });
-      }
-    });
+    const unsubscribeDeploy = subscribe(
+      "contract_deployed",
+      (data: unknown) => {
+        const typedData = data as Record<string, unknown>;
+        if (typedData.contractId === contractId) {
+          queryClient.invalidateQueries({
+            queryKey: ["contract", contractId],
+          });
+        }
+      },
+    );
 
     return () => {
       unsubscribe();
@@ -51,10 +54,10 @@ export function useContractListAutoRefresh() {
 
   useEffect(() => {
     // Subscribe to new deployments for the contract list
-    const unsubscribe = subscribe('contract_deployed', () => {
+    const unsubscribe = subscribe("contract_deployed", () => {
       // Invalidate contract list queries
       queryClient.invalidateQueries({
-        queryKey: ['contracts'],
+        queryKey: ["contracts"],
       });
     });
 

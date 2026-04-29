@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { X } from "lucide-react";
 
 interface FilterChip {
   id: string;
@@ -20,9 +20,11 @@ export function ActiveFilters({ chips, onClearAll }: ActiveFiltersProps) {
     <section className="mt-4 rounded-2xl border border-border bg-card/70 p-4 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-foreground">Active filters</p>
+          <p className="text-sm font-semibold text-foreground">
+            Active filters
+          </p>
           <p className="text-xs text-muted-foreground">
-            {chips.length} filter{chips.length === 1 ? '' : 's'} applied
+            {chips.length} filter{chips.length === 1 ? "" : "s"} applied
           </p>
         </div>
         <button

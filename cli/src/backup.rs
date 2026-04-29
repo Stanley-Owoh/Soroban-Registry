@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use crate::net::RequestBuilderExt;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
@@ -34,11 +35,11 @@ struct BackupRestoration {
 }
 
 pub async fn create_backup(api_url: &str, contract_id: &str, include_state: bool) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let backup: ContractBackup = client
         .post(format!("{}/api/contracts/{}/backups", api_url, contract_id))
         .json(&CreateBackupRequest { include_state })
-        .send()
+        .send_with_retry()
         .await?
         .json()
         .await?;
@@ -51,10 +52,10 @@ pub async fn create_backup(api_url: &str, contract_id: &str, include_state: bool
 }
 
 pub async fn list_backups(api_url: &str, contract_id: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let backups: Vec<ContractBackup> = client
         .get(format!("{}/api/contracts/{}/backups", api_url, contract_id))
-        .send()
+        .send_with_retry()
         .await?
         .json()
         .await?;
@@ -72,7 +73,7 @@ pub async fn list_backups(api_url: &str, contract_id: &str) -> Result<()> {
 }
 
 pub async fn restore_backup(api_url: &str, contract_id: &str, backup_date: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
 
     println!("🔄 Restoring backup from {}...", backup_date);
 
@@ -84,7 +85,7 @@ pub async fn restore_backup(api_url: &str, contract_id: &str, backup_date: &str)
         .json(&RestoreBackupRequest {
             backup_date: backup_date.to_string(),
         })
-        .send()
+        .send_with_retry()
         .await?
         .json()
         .await?;
@@ -100,13 +101,13 @@ pub async fn restore_backup(api_url: &str, contract_id: &str, backup_date: &str)
 }
 
 pub async fn verify_backup(api_url: &str, contract_id: &str, backup_date: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     client
         .post(format!(
             "{}/api/contracts/{}/backups/{}/verify",
             api_url, contract_id, backup_date
         ))
-        .send()
+        .send_with_retry()
         .await?;
 
     println!("✅ Backup verified: {}", backup_date);
@@ -114,13 +115,13 @@ pub async fn verify_backup(api_url: &str, contract_id: &str, backup_date: &str) 
 }
 
 pub async fn backup_stats(api_url: &str, contract_id: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let stats: serde_json::Value = client
         .get(format!(
             "{}/api/contracts/{}/backups/stats",
             api_url, contract_id
         ))
-        .send()
+        .send_with_retry()
         .await?
         .json()
         .await?;

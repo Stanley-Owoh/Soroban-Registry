@@ -65,6 +65,7 @@ cargo run --bin seeder -- --count=50 --database-url=postgresql://user:pass@local
 ```
 
 **Features:**
+
 - Creates realistic contracts with names, descriptions, tags, and categories
 - Generates publishers with Stellar addresses
 - Creates contract versions and verification records
@@ -74,6 +75,7 @@ cargo run --bin seeder -- --count=50 --database-url=postgresql://user:pass@local
 - Reproducible results with `--seed` flag
 
 **Custom Data Format:**
+
 ```json
 {
   "contract_names": ["CustomContract1", "CustomContract2"],
@@ -142,6 +144,7 @@ pnpm dev
 ### Web Interface
 
 Access the web application at `http://localhost:3000` to:
+
 - Browse and search contracts
 - View contract details and source code
 - Publish new contracts
@@ -226,13 +229,13 @@ CLI configuration is stored at `~/.soroban-registry/config.toml`. If a legacy `~
 
 Soroban Registry automatically tracks **release history** for each contract and enforces **semantic versioning rules** when new versions are created.
 
-- **Version creation enforcement**  
+- **Version creation enforcement**
   - When `POST /api/contracts/:id/versions` is called, the registry:
     - Loads the latest ABI for the previous version.
     - Computes an ABI diff using the same engine behind `GET /api/contracts/breaking-changes`.
     - **Rejects** the request with `422 BreakingChangeWithoutMajorBump` if any breaking changes are detected and the new version does not bump the **major** semver component.
 
-- **Changelog API**  
+- **Changelog API**
   - `GET /api/contracts/:id/changelog` (and alias `GET /contracts/:id/changelog`) returns a structured changelog:
 
   ```json

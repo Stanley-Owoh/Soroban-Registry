@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useId, useMemo } from 'react';
-import { FileText, Trash2, UploadCloud } from 'lucide-react';
-import { formatBytes } from '@/utils/fileValidation';
+import React, { useId, useMemo } from "react";
+import { FileText, Trash2, UploadCloud } from "lucide-react";
+import { formatBytes } from "@/utils/fileValidation";
 
 function fileKey(file: File): string {
   return `${file.name}::${file.size}::${file.lastModified}`;
@@ -17,10 +17,18 @@ export default function FileUploader(props: {
   onAddFiles: (files: File[]) => void;
   onRemoveFile: (key: string) => void;
 }) {
-  const { files, progress, errors, totalBytes, maxBytes, onAddFiles, onRemoveFile } = props;
+  const {
+    files,
+    progress,
+    errors,
+    totalBytes,
+    maxBytes,
+    onAddFiles,
+    onRemoveFile,
+  } = props;
   const inputId = useId();
 
-  const accept = useMemo(() => ['.pdf', '.txt', '.doc', '.docx'].join(','), []);
+  const accept = useMemo(() => [".pdf", ".txt", ".doc", ".docx"].join(","), []);
 
   return (
     <div className="space-y-3">
@@ -29,10 +37,13 @@ export default function FileUploader(props: {
           <div>
             <div className="flex items-center gap-2">
               <UploadCloud className="w-4 h-4 text-primary" />
-              <p className="font-semibold text-foreground">Upload supporting documents</p>
+              <p className="font-semibold text-foreground">
+                Upload supporting documents
+              </p>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Accepted: PDF, DOC, TXT · Total limit: {formatBytes(maxBytes)} · Current: {formatBytes(totalBytes)}
+              Accepted: PDF, DOC, TXT · Total limit: {formatBytes(maxBytes)} ·
+              Current: {formatBytes(totalBytes)}
             </p>
           </div>
 
@@ -46,7 +57,7 @@ export default function FileUploader(props: {
               onChange={(e) => {
                 const next = Array.from(e.target.files || []);
                 if (next.length > 0) onAddFiles(next);
-                e.currentTarget.value = '';
+                e.currentTarget.value = "";
               }}
             />
             <label
@@ -70,7 +81,9 @@ export default function FileUploader(props: {
 
         {files.length === 0 ? (
           <div className="mt-4 border border-dashed border-border rounded-xl p-6 text-center">
-            <p className="text-sm text-muted-foreground">No documents uploaded yet.</p>
+            <p className="text-sm text-muted-foreground">
+              No documents uploaded yet.
+            </p>
           </div>
         ) : (
           <div className="mt-4 space-y-2">
@@ -79,7 +92,10 @@ export default function FileUploader(props: {
               const pct = progress[key] ?? 0;
 
               return (
-                <div key={key} className="flex items-start gap-3 rounded-xl border border-border bg-background p-3">
+                <div
+                  key={key}
+                  className="flex items-start gap-3 rounded-xl border border-border bg-background p-3"
+                >
                   <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <FileText className="w-4 h-4 text-primary" />
                   </div>
@@ -87,8 +103,12 @@ export default function FileUploader(props: {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{file.name}</p>
-                        <p className="text-xs text-muted-foreground">{formatBytes(file.size)}</p>
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatBytes(file.size)}
+                        </p>
                       </div>
                       <button
                         type="button"
@@ -102,10 +122,13 @@ export default function FileUploader(props: {
 
                     <div className="mt-2">
                       <div className="h-2 rounded-full bg-border overflow-hidden">
-                        <div className="h-full bg-primary transition-[width] duration-300" style={{ width: `${pct}%` }} />
+                        <div
+                          className="h-full bg-primary transition-[width] duration-300"
+                          style={{ width: `${pct}%` }}
+                        />
                       </div>
                       <div className="mt-1 text-[11px] text-muted-foreground">
-                        {pct >= 100 ? 'Uploaded' : `Uploading… ${pct}%`}
+                        {pct >= 100 ? "Uploaded" : `Uploading… ${pct}%`}
                       </div>
                     </div>
                   </div>
@@ -118,4 +141,3 @@ export default function FileUploader(props: {
     </div>
   );
 }
-

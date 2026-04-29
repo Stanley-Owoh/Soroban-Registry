@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useContext } from 'react';
-import { ToastContext, ToastContextValue } from '@/providers/ToastProvider';
+import { useContext } from "react";
+import { ToastContext, ToastContextValue } from "@/providers/ToastProvider";
 
 export function useToast(): ToastContextValue {
   const context = useContext(ToastContext);

@@ -12,4 +12,3 @@ export function clampStr(s: string, maxLen: number): string {
   if (maxLen <= 1) return s.slice(0, maxLen);
   return `${s.slice(0, maxLen - 1)}…`;
 }
-

@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import type { QueryCondition, QueryNode, QueryOperator } from '@/lib/api';
+import type { QueryCondition, QueryNode, QueryOperator } from "@/types";
 
 type Token =
-  | { type: 'op'; op: QueryOperator }
-  | { type: 'tag'; value: string }
-  | { type: 'term'; value: string }
-  | { type: 'lparen' }
-  | { type: 'rparen' };
+  | { type: "op"; op: QueryOperator }
+  | { type: "tag"; value: string }
+  | { type: "term"; value: string }
+  | { type: "lparen" }
+  | { type: "rparen" };
 
 export type ParsedAdvancedQuery = {
   queryNode: QueryNode | null;
@@ -17,22 +17,22 @@ export type ParsedAdvancedQuery = {
 };
 
 function isWhitespace(char: string) {
-  return char === ' ' || char === '\n' || char === '\t' || char === '\r';
+  return char === " " || char === "\n" || char === "\t" || char === "\r";
 }
 
 function isOpToken(value: string): QueryOperator | null {
   const upper = value.toUpperCase();
-  if (upper === 'AND' || value === '&&') return 'AND';
-  if (upper === 'OR' || value === '||') return 'OR';
+  if (upper === "AND" || value === "&&") return "AND";
+  if (upper === "OR" || value === "||") return "OR";
   return null;
 }
 
 function readQuoted(input: string, start: number) {
   let index = start;
-  let value = '';
+  let value = "";
   while (index < input.length) {
     const char = input[index];
-    if (char === '\\' && index + 1 < input.length) {
+    if (char === "\\" && index + 1 < input.length) {
       value += input[index + 1];
       index += 2;
       continue;
@@ -48,10 +48,10 @@ function readQuoted(input: string, start: number) {
 
 function readBare(input: string, start: number) {
   let index = start;
-  let value = '';
+  let value = "";
   while (index < input.length) {
     const char = input[index];
-    if (isWhitespace(char) || char === '(' || char === ')') break;
+    if (isWhitespace(char) || char === "(" || char === ")") break;
     value += char;
     index += 1;
   }
@@ -69,50 +69,53 @@ function tokenize(input: string): Token[] {
       continue;
     }
 
-    if (char === '(') {
-      tokens.push({ type: 'lparen' });
+    if (char === "(") {
+      tokens.push({ type: "lparen" });
       index += 1;
       continue;
     }
-    if (char === ')') {
-      tokens.push({ type: 'rparen' });
+    if (char === ")") {
+      tokens.push({ type: "rparen" });
       index += 1;
       continue;
     }
 
     // #tag shorthand
-    if (char === '#') {
+    if (char === "#") {
       const { value, next } = readBare(input, index + 1);
       if (value.trim()) {
-        tokens.push({ type: 'tag', value });
+        tokens.push({ type: "tag", value });
       }
       index = next;
       continue;
     }
 
     const lowerRemainder = input.slice(index).toLowerCase();
-    if (lowerRemainder.startsWith('tag:') || lowerRemainder.startsWith('tags:')) {
-      const prefixLength = lowerRemainder.startsWith('tags:') ? 5 : 4;
+    if (
+      lowerRemainder.startsWith("tag:") ||
+      lowerRemainder.startsWith("tags:")
+    ) {
+      const prefixLength = lowerRemainder.startsWith("tags:") ? 5 : 4;
       index += prefixLength;
       while (index < input.length && isWhitespace(input[index])) index += 1;
       if (index >= input.length) break;
 
       if (input[index] === '"') {
         const { value, next } = readQuoted(input, index + 1);
-        if (value.trim()) tokens.push({ type: 'tag', value });
+        if (value.trim()) tokens.push({ type: "tag", value });
         index = next;
         continue;
       }
 
       const { value, next } = readBare(input, index);
-      if (value.trim()) tokens.push({ type: 'tag', value });
+      if (value.trim()) tokens.push({ type: "tag", value });
       index = next;
       continue;
     }
 
     if (char === '"') {
       const { value, next } = readQuoted(input, index + 1);
-      if (value.trim()) tokens.push({ type: 'term', value });
+      if (value.trim()) tokens.push({ type: "term", value });
       index = next;
       continue;
     }
@@ -120,9 +123,9 @@ function tokenize(input: string): Token[] {
     const { value, next } = readBare(input, index);
     const op = isOpToken(value);
     if (op) {
-      tokens.push({ type: 'op', op });
+      tokens.push({ type: "op", op });
     } else if (value.trim()) {
-      tokens.push({ type: 'term', value });
+      tokens.push({ type: "term", value });
     }
     index = next;
   }
@@ -130,24 +133,31 @@ function tokenize(input: string): Token[] {
   return tokens;
 }
 
-function makeCondition(field: string, operator: QueryCondition['operator'], value: string): QueryNode {
+function makeCondition(
+  field: string,
+  operator: QueryCondition["operator"],
+  value: string,
+): QueryNode {
   return { field, operator, value };
 }
 
-function makeGroup(operator: QueryOperator, conditions: QueryNode[]): QueryNode {
+function makeGroup(
+  operator: QueryOperator,
+  conditions: QueryNode[],
+): QueryNode {
   if (conditions.length === 1) return conditions[0];
   return { operator, conditions };
 }
 
 function makeKeywordNode(text: string): QueryNode {
   const term = text.trim();
-  if (!term) return makeCondition('name', 'contains', '');
-  return makeGroup('OR', [
-    makeCondition('name', 'contains', term),
-    makeCondition('description', 'contains', term),
-    makeCondition('category', 'contains', term),
-    makeCondition('publisher', 'contains', term),
-    makeCondition('tag', 'contains', term),
+  if (!term) return makeCondition("name", "contains", "");
+  return makeGroup("OR", [
+    makeCondition("name", "contains", term),
+    makeCondition("description", "contains", term),
+    makeCondition("category", "contains", term),
+    makeCondition("publisher", "contains", term),
+    makeCondition("tag", "contains", term),
   ]);
 }
 
@@ -158,22 +168,22 @@ function parseTokens(tokens: Token[]): QueryNode | null {
   const consume = () => tokens[index++];
 
   const startsPrimary = (token: Token | undefined) =>
-    token?.type === 'term' || token?.type === 'tag' || token?.type === 'lparen';
+    token?.type === "term" || token?.type === "tag" || token?.type === "lparen";
 
   const parsePrimary = (): QueryNode | null => {
     const token = at();
     if (!token) return null;
-    if (token.type === 'lparen') {
+    if (token.type === "lparen") {
       consume();
       const expr = parseOr();
-      if (at()?.type === 'rparen') consume();
+      if (at()?.type === "rparen") consume();
       return expr;
     }
-    if (token.type === 'tag') {
+    if (token.type === "tag") {
       consume();
-      return makeCondition('tag', 'contains', token.value);
+      return makeCondition("tag", "contains", token.value);
     }
-    if (token.type === 'term') {
+    if (token.type === "term") {
       consume();
       return makeKeywordNode(token.value);
     }
@@ -188,7 +198,7 @@ function parseTokens(tokens: Token[]): QueryNode | null {
     while (index < tokens.length) {
       const token = at();
       if (!token) break;
-      if (token.type === 'op' && token.op === 'AND') {
+      if (token.type === "op" && token.op === "AND") {
         consume();
         const next = parsePrimary();
         if (next) nodes.push(next);
@@ -202,7 +212,7 @@ function parseTokens(tokens: Token[]): QueryNode | null {
       break;
     }
 
-    return makeGroup('AND', nodes);
+    return makeGroup("AND", nodes);
   };
 
   const parseOr = (): QueryNode | null => {
@@ -213,34 +223,41 @@ function parseTokens(tokens: Token[]): QueryNode | null {
     while (index < tokens.length) {
       const token = at();
       if (!token) break;
-      if (token.type !== 'op' || token.op !== 'OR') break;
+      if (token.type !== "op" || token.op !== "OR") break;
       consume();
       const next = parseAnd();
       if (next) nodes.push(next);
     }
 
-    return makeGroup('OR', nodes);
+    return makeGroup("OR", nodes);
   };
 
   return parseOr();
 }
 
 export function parseAdvancedContractQuery(input: string): ParsedAdvancedQuery {
-  const raw = input ?? '';
+  const raw = input ?? "";
   const tokens = tokenize(raw);
 
   const tags = tokens
-    .filter((token): token is Extract<Token, { type: 'tag' }> => token.type === 'tag')
+    .filter(
+      (token): token is Extract<Token, { type: "tag" }> => token.type === "tag",
+    )
     .map((token) => token.value.trim())
     .filter(Boolean);
 
-  const usesOr = tokens.some((token) => token.type === 'op' && token.op === 'OR');
+  const usesOr = tokens.some(
+    (token) => token.type === "op" && token.op === "OR",
+  );
 
   const cleanedSimpleQuery = tokens
-    .filter((token): token is Extract<Token, { type: 'term' }> => token.type === 'term')
+    .filter(
+      (token): token is Extract<Token, { type: "term" }> =>
+        token.type === "term",
+    )
     .map((token) => token.value.trim())
     .filter(Boolean)
-    .join(' ')
+    .join(" ")
     .trim();
 
   const queryNode = tokens.length > 0 ? parseTokens(tokens) : null;
@@ -252,7 +269,7 @@ export function combineAdvancedQueryWithFilters(
   base: QueryNode,
   filters: {
     categories?: string[];
-    networks?: Array<'mainnet' | 'testnet' | 'futurenet'>;
+    networks?: Array<"mainnet" | "testnet" | "futurenet">;
     tags?: string[];
     author?: string;
     verified_only?: boolean;
@@ -261,36 +278,60 @@ export function combineAdvancedQueryWithFilters(
   const andConditions: QueryNode[] = [base];
 
   if (filters.verified_only) {
-    andConditions.push({ field: 'verified', operator: 'eq', value: true });
+    andConditions.push({ field: "verified", operator: "eq", value: true });
   }
 
   if (filters.author?.trim()) {
-    andConditions.push({ field: 'publisher', operator: 'contains', value: filters.author.trim() });
+    andConditions.push({
+      field: "publisher",
+      operator: "contains",
+      value: filters.author.trim(),
+    });
   }
 
   if (filters.categories?.length) {
     if (filters.categories.length === 1) {
-      andConditions.push({ field: 'category', operator: 'eq', value: filters.categories[0] });
+      andConditions.push({
+        field: "category",
+        operator: "eq",
+        value: filters.categories[0],
+      });
     } else {
-      andConditions.push({ field: 'category', operator: 'in', value: filters.categories });
+      andConditions.push({
+        field: "category",
+        operator: "in",
+        value: filters.categories,
+      });
     }
   }
 
   if (filters.networks?.length) {
     if (filters.networks.length === 1) {
-      andConditions.push({ field: 'network', operator: 'eq', value: filters.networks[0] });
+      andConditions.push({
+        field: "network",
+        operator: "eq",
+        value: filters.networks[0],
+      });
     } else {
-      andConditions.push({ field: 'network', operator: 'in', value: filters.networks });
+      andConditions.push({
+        field: "network",
+        operator: "in",
+        value: filters.networks,
+      });
     }
   }
 
   if (filters.tags?.length) {
     if (filters.tags.length === 1) {
-      andConditions.push({ field: 'tag', operator: 'contains', value: filters.tags[0] });
+      andConditions.push({
+        field: "tag",
+        operator: "contains",
+        value: filters.tags[0],
+      });
     } else {
-      andConditions.push({ field: 'tag', operator: 'in', value: filters.tags });
+      andConditions.push({ field: "tag", operator: "in", value: filters.tags });
     }
   }
 
-  return makeGroup('AND', andConditions);
+  return makeGroup("AND", andConditions);
 }

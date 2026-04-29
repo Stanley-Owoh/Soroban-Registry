@@ -45,11 +45,7 @@ fn test_test_help_includes_issue_527_flags() {
 
 #[test]
 fn test_test_command_runs_without_scenario_file_with_custom_command() {
-    let test_command = if cfg!(windows) {
-        "echo ok"
-    } else {
-        "true"
-    };
+    let test_command = if cfg!(windows) { "echo ok" } else { "true" };
     let output = Command::new(get_binary_path())
         .arg("test")
         .arg("--contract-path")

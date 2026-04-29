@@ -1,6 +1,9 @@
 const TICKS = "▁▂▃▄▅▆▇█";
 
-export function sparkline(values: number[], params?: { width?: number; min?: number; max?: number }): string {
+export function sparkline(
+  values: number[],
+  params?: { width?: number; min?: number; max?: number },
+): string {
   const width = Math.max(1, params?.width ?? values.length);
   if (values.length === 0) return "".padEnd(width, " ");
 
@@ -13,7 +16,10 @@ export function sparkline(values: number[], params?: { width?: number; min?: num
   return sampled
     .map((v) => {
       const t = (v - min) / (max - min);
-      const idx = Math.max(0, Math.min(TICKS.length - 1, Math.round(t * (TICKS.length - 1))));
+      const idx = Math.max(
+        0,
+        Math.min(TICKS.length - 1, Math.round(t * (TICKS.length - 1))),
+      );
       return TICKS[idx];
     })
     .join("");
@@ -36,4 +42,3 @@ function sampleToWidth(values: number[], width: number): number[] {
   }
   return out;
 }
-

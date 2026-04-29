@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import { useState, useCallback } from 'react';
-import { NotificationPreferences } from '@/types/realtime';
+import { useState, useCallback } from "react";
+import { NotificationPreferences } from "@/types/realtime";
 
 const DEFAULT_PREFERENCES: NotificationPreferences = {
   enableDeploymentNotifications: true,
   enableUpdateNotifications: true,
   enableDesktopNotifications: true,
   enableSoundNotification: false,
-  updateTypes: ['verification_status', 'security_audit'],
+  updateTypes: ["verification_status", "security_audit"],
 };
 
-const STORAGE_KEY = 'notification-preferences';
+const STORAGE_KEY = "notification-preferences";
 
 function loadPreferencesFromStorage(): NotificationPreferences {
-  if (typeof window === 'undefined') return DEFAULT_PREFERENCES;
+  if (typeof window === "undefined") return DEFAULT_PREFERENCES;
   const stored = localStorage.getItem(STORAGE_KEY);
   if (!stored) return DEFAULT_PREFERENCES;
   try {
@@ -25,16 +25,21 @@ function loadPreferencesFromStorage(): NotificationPreferences {
 }
 
 export function useNotificationPreferences() {
-  const [preferences, setPreferences] = useState<NotificationPreferences>(loadPreferencesFromStorage);
+  const [preferences, setPreferences] = useState<NotificationPreferences>(
+    loadPreferencesFromStorage,
+  );
   const isLoaded = true;
 
-  const updatePreferences = useCallback((updates: Partial<NotificationPreferences>) => {
-    setPreferences(prev => {
-      const updated = { ...prev, ...updates };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
+  const updatePreferences = useCallback(
+    (updates: Partial<NotificationPreferences>) => {
+      setPreferences((prev) => {
+        const updated = { ...prev, ...updates };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        return updated;
+      });
+    },
+    [],
+  );
 
   const toggleDeploymentNotifications = useCallback(() => {
     updatePreferences({
@@ -60,9 +65,12 @@ export function useNotificationPreferences() {
     });
   }, [preferences.enableSoundNotification, updatePreferences]);
 
-  const updateUpdateTypes = useCallback((types: string[]) => {
-    updatePreferences({ updateTypes: types });
-  }, [updatePreferences]);
+  const updateUpdateTypes = useCallback(
+    (types: string[]) => {
+      updatePreferences({ updateTypes: types });
+    },
+    [updatePreferences],
+  );
 
   return {
     preferences,

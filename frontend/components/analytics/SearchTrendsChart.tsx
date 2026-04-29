@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   LineChart,
   Line,
@@ -10,8 +10,8 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-} from 'recharts';
-import { SearchTrendPoint } from '@/types/analytics';
+} from "recharts";
+import { SearchTrendPoint } from "@/types/analytics";
 
 interface SearchTrendsChartProps {
   data: SearchTrendPoint[];
@@ -38,23 +38,25 @@ const SearchTrendsChart: React.FC<SearchTrendsChartProps> = ({ data }) => {
     <div className="bg-card rounded-2xl border border-border p-6 flex flex-col h-full">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-foreground">Search Trends</h3>
+          <h3 className="text-lg font-semibold text-foreground">
+            Search Trends
+          </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Daily search volume and unique search terms
           </p>
         </div>
         <div className="flex gap-2">
           {[
-            { key: 'searches', label: 'Searches', color: '#3b82f6' },
-            { key: 'uniqueTerms', label: 'Unique Terms', color: '#8b5cf6' },
+            { key: "searches", label: "Searches", color: "#3b82f6" },
+            { key: "uniqueTerms", label: "Unique Terms", color: "#8b5cf6" },
           ].map(({ key, label, color }) => (
             <button
               key={key}
               onClick={() => toggleLine(key)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all border ${
                 hiddenLines.has(key)
-                  ? 'border-border text-muted-foreground bg-transparent'
-                  : 'border-transparent text-white'
+                  ? "border-border text-muted-foreground bg-transparent"
+                  : "border-transparent text-white"
               }`}
               style={hiddenLines.has(key) ? {} : { backgroundColor: color }}
             >
@@ -69,8 +71,15 @@ const SearchTrendsChart: React.FC<SearchTrendsChartProps> = ({ data }) => {
       </div>
       <div className="flex-1 min-h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
+          <LineChart
+            data={data}
+            margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="var(--border)"
+              opacity={0.5}
+            />
             <XAxis
               dataKey="date"
               tickFormatter={formatDate}
@@ -85,16 +94,21 @@ const SearchTrendsChart: React.FC<SearchTrendsChartProps> = ({ data }) => {
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: 'var(--card)',
-                borderRadius: '10px',
-                border: '1px solid var(--border)',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                backgroundColor: "var(--card)",
+                borderRadius: "10px",
+                border: "1px solid var(--border)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                 fontSize: 12,
               }}
-              labelFormatter={(v) => new Date(v).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              labelFormatter={(v) =>
+                new Date(v).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                })
+              }
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            {!hiddenLines.has('searches') && (
+            {!hiddenLines.has("searches") && (
               <Line
                 type="monotone"
                 dataKey="searches"
@@ -105,7 +119,7 @@ const SearchTrendsChart: React.FC<SearchTrendsChartProps> = ({ data }) => {
                 activeDot={{ r: 5 }}
               />
             )}
-            {!hiddenLines.has('uniqueTerms') && (
+            {!hiddenLines.has("uniqueTerms") && (
               <Line
                 type="monotone"
                 dataKey="uniqueTerms"

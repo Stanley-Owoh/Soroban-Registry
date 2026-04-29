@@ -39,7 +39,9 @@ export interface DebugTraceStep {
 }
 
 export function extractPublicFunctions(source: string): string[] {
-  return Array.from(source.matchAll(/pub\s+fn\s+([A-Za-z0-9_]+)\s*\(/g)).map((match) => match[1]);
+  return Array.from(source.matchAll(/pub\s+fn\s+([A-Za-z0-9_]+)\s*\(/g)).map(
+    (match) => match[1],
+  );
 }
 
 function braceDiagnostics(source: string): CompileDiagnostic[] {
@@ -56,13 +58,21 @@ function braceDiagnostics(source: string): CompileDiagnostic[] {
     if (char === "}" || char === ")" || char === "]") {
       const previous = stack.pop();
       if (!previous || previous.char !== pairs[char]) {
-        diagnostics.push({ line, severity: "error", message: `Unmatched ${char}` });
+        diagnostics.push({
+          line,
+          severity: "error",
+          message: `Unmatched ${char}`,
+        });
       }
     }
   }
 
   for (const item of stack) {
-    diagnostics.push({ line: item.line, severity: "error", message: `Unclosed ${item.char}` });
+    diagnostics.push({
+      line: item.line,
+      severity: "error",
+      message: `Unclosed ${item.char}`,
+    });
   }
 
   return diagnostics;
@@ -76,7 +86,8 @@ export function compileContractSource(source: string): CompileResult {
     diagnostics.push({
       line: 1,
       severity: "warning",
-      message: "Soroban contracts should compile without the Rust standard library.",
+      message:
+        "Soroban contracts should compile without the Rust standard library.",
     });
   }
 
@@ -125,32 +136,41 @@ export function runContractTests(source: string): TestResult[] {
       name: "wasm compilation",
       status: compile.ok ? "passed" : "failed",
       durationMs: 42,
-      details: compile.ok ? "Compilation produced a WASM artifact." : "Compilation diagnostics contain errors.",
+      details: compile.ok
+        ? "Compilation produced a WASM artifact."
+        : "Compilation diagnostics contain errors.",
     },
     {
       name: "authorization path",
       status: hasAuth ? "passed" : "failed",
       durationMs: 18,
-      details: hasAuth ? "At least one authorization check is present." : "No require_auth call was detected.",
+      details: hasAuth
+        ? "At least one authorization check is present."
+        : "No require_auth call was detected.",
     },
     {
       name: "state access smoke test",
       status: hasStorage ? "passed" : "failed",
       durationMs: 23,
-      details: hasStorage ? "Storage access paths are reachable." : "No storage calls were detected.",
+      details: hasStorage
+        ? "Storage access paths are reachable."
+        : "No storage calls were detected.",
     },
     {
       name: "recoverable error policy",
       status: hasPanics ? "failed" : "passed",
       durationMs: 15,
-      details: hasPanics ? "Panic-prone calls were found in contract source." : "No panic-prone calls were found.",
+      details: hasPanics
+        ? "Panic-prone calls were found in contract source."
+        : "No panic-prone calls were found.",
     },
   ];
 }
 
 export function createDebugTrace(source: string): DebugTraceStep[] {
   const functions = extractPublicFunctions(source);
-  const writesStorage = /storage\(\)\.(persistent|temporary|instance)\(\)\.set/.test(source);
+  const writesStorage =
+    /storage\(\)\.(persistent|temporary|instance)\(\)\.set/.test(source);
   const hasAuth = /require_auth\s*\(/.test(source);
   const hasPanic = /\b(panic!|unwrap\s*\(|expect\s*\()/.test(source);
   const emitsEvents = /events\(\)\.publish/.test(source);
@@ -166,25 +186,33 @@ export function createDebugTrace(source: string): DebugTraceStep[] {
       step: 2,
       label: "Execute authorization gate",
       status: hasAuth ? "ok" : writesStorage ? "error" : "warning",
-      detail: hasAuth ? "require_auth was reached before privileged actions." : "No require_auth call was found.",
+      detail: hasAuth
+        ? "require_auth was reached before privileged actions."
+        : "No require_auth call was found.",
     },
     {
       step: 3,
       label: "Commit storage changes",
       status: writesStorage ? "ok" : "warning",
-      detail: writesStorage ? "Persistent storage write path detected." : "No persistent write path was detected.",
+      detail: writesStorage
+        ? "Persistent storage write path detected."
+        : "No persistent write path was detected.",
     },
     {
       step: 4,
       label: "Emit registry events",
       status: emitsEvents ? "ok" : "warning",
-      detail: emitsEvents ? "Event publication path detected." : "No events().publish call was found.",
+      detail: emitsEvents
+        ? "Event publication path detected."
+        : "No events().publish call was found.",
     },
     {
       step: 5,
       label: "Return caller result",
       status: hasPanic ? "error" : "ok",
-      detail: hasPanic ? "Panic-prone calls may abort instead of returning a recoverable error." : "No panic-prone calls detected.",
+      detail: hasPanic
+        ? "Panic-prone calls may abort instead of returning a recoverable error."
+        : "No panic-prone calls detected.",
     },
   ];
 }
@@ -193,7 +221,8 @@ export function createPackageManifest(name: string, source: string) {
   const exports = extractPublicFunctions(source);
 
   return {
-    package: name.toLowerCase().replace(/[^a-z0-9_-]+/g, "-") || "soroban-contract",
+    package:
+      name.toLowerCase().replace(/[^a-z0-9_-]+/g, "-") || "soroban-contract",
     version: "0.1.0",
     target: "wasm32-unknown-unknown",
     exports,
@@ -201,7 +230,11 @@ export function createPackageManifest(name: string, source: string) {
   };
 }
 
-export function createVersionSnapshot(source: string, label: string, createdAt = new Date().toISOString()): VersionSnapshot {
+export function createVersionSnapshot(
+  source: string,
+  label: string,
+  createdAt = new Date().toISOString(),
+): VersionSnapshot {
   const lines = source.split("\n").length;
   const functions = extractPublicFunctions(source).length;
 
@@ -214,17 +247,33 @@ export function createVersionSnapshot(source: string, label: string, createdAt =
   };
 }
 
-export function diffSnapshots(previous: VersionSnapshot, next: VersionSnapshot) {
+export function diffSnapshots(
+  previous: VersionSnapshot,
+  next: VersionSnapshot,
+) {
   const before = previous.source.split("\n");
   const after = next.source.split("\n");
   const max = Math.max(before.length, after.length);
-  const changes: Array<{ line: number; before?: string; after?: string; type: "added" | "removed" | "changed" }> = [];
+  const changes: Array<{
+    line: number;
+    before?: string;
+    after?: string;
+    type: "added" | "removed" | "changed";
+  }> = [];
 
   for (let index = 0; index < max; index += 1) {
     if (before[index] === after[index]) continue;
-    if (before[index] === undefined) changes.push({ line: index + 1, after: after[index], type: "added" });
-    else if (after[index] === undefined) changes.push({ line: index + 1, before: before[index], type: "removed" });
-    else changes.push({ line: index + 1, before: before[index], after: after[index], type: "changed" });
+    if (before[index] === undefined)
+      changes.push({ line: index + 1, after: after[index], type: "added" });
+    else if (after[index] === undefined)
+      changes.push({ line: index + 1, before: before[index], type: "removed" });
+    else
+      changes.push({
+        line: index + 1,
+        before: before[index],
+        after: after[index],
+        type: "changed",
+      });
   }
 
   return changes;

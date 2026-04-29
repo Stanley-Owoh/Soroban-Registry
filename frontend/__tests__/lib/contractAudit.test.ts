@@ -36,19 +36,34 @@ impl Token {
 
 describe("contract audit model", () => {
   test("detects explainable vulnerabilities and lowers the score", () => {
-    const report = analyzeContractSource(vulnerable, "2026-04-23T00:00:00.000Z");
+    const report = analyzeContractSource(
+      vulnerable,
+      "2026-04-23T00:00:00.000Z",
+    );
 
     expect(report.score).toBeLessThan(70);
     expect(report.findings.map((finding) => finding.id)).toEqual(
-      expect.arrayContaining(["missing-auth", "duplicate-storage-key", "panic-public"]),
+      expect.arrayContaining([
+        "missing-auth",
+        "duplicate-storage-key",
+        "panic-public",
+      ]),
     );
     expect(report.recommendations.length).toBeGreaterThan(0);
-    expect(report.signals.some((signal) => signal.name === "Authorization coverage")).toBe(true);
+    expect(
+      report.signals.some((signal) => signal.name === "Authorization coverage"),
+    ).toBe(true);
   });
 
   test("rewards typed storage, authorization, events, and recoverable errors", () => {
-    const vulnerableReport = analyzeContractSource(vulnerable, "2026-04-23T00:00:00.000Z");
-    const saferReport = analyzeContractSource(safer, "2026-04-23T00:00:00.000Z");
+    const vulnerableReport = analyzeContractSource(
+      vulnerable,
+      "2026-04-23T00:00:00.000Z",
+    );
+    const saferReport = analyzeContractSource(
+      safer,
+      "2026-04-23T00:00:00.000Z",
+    );
 
     expect(saferReport.score).toBeGreaterThan(vulnerableReport.score);
     expect(saferReport.grade).toMatch(/[AB]/);

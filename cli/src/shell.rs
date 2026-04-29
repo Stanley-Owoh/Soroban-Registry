@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::Cli;
+use anyhow::Result;
 use clap::CommandFactory;
 use clap::Parser;
 use colored::Colorize;
@@ -13,8 +13,6 @@ use shlex;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
-
-use crate::Cli;
 
 pub struct ShellContext {
     pub api_url: String,
@@ -66,7 +64,9 @@ pub async fn run(api_url: &str, initial_network: Option<String>) -> Result<()> {
         initial_network.unwrap_or_else(|| "testnet".to_string()),
     );
 
-    context.vars.insert("api_url".to_string(), context.api_url.clone());
+    context
+        .vars
+        .insert("api_url".to_string(), context.api_url.clone());
     context
         .vars
         .insert("network".to_string(), context.network.clone());
@@ -76,6 +76,7 @@ pub async fn run(api_url: &str, initial_network: Option<String>) -> Result<()> {
         helper.update_vars(&context);
     }
     let _ = rl.load_history(&history_path);
+    // rl.set_max_history_size(1000);
 
     println!("\n{}", "Soroban Registry REPL".bold().cyan());
     println!("Start with 'help' or run any CLI command.");
@@ -244,7 +245,8 @@ fn show_context(context: &ShellContext) {
 }
 
 fn repl_history_path() -> Result<PathBuf> {
-    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Cannot determine home directory"))?;
+    let home =
+        dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Cannot determine home directory"))?;
     let dir = home.join(".soroban-registry");
     std::fs::create_dir_all(&dir).ok();
     Ok(dir.join("repl_history.txt"))
@@ -500,20 +502,13 @@ impl ReplHelper {
         for sub in cmd.get_subcommands() {
             commands.push(sub.get_name().to_string());
         }
-        commands.extend([
-            "help",
-            "exit",
-            "quit",
-            "context",
-            "use",
-            "set",
-            "let",
-            "unset",
-            "vars",
-            "ls",
-        ]
-        .into_iter()
-        .map(str::to_string));
+        commands.extend(
+            [
+                "help", "exit", "quit", "context", "use", "set", "let", "unset", "vars", "ls",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        );
         commands.sort();
         commands.dedup();
 
@@ -524,12 +519,12 @@ impl ReplHelper {
     }
 
     fn update_vars(&mut self, context: &ShellContext) {
-        let mut vars: Vec<String> = context
-            .vars
-            .keys()
-            .map(|k| format!("${k}"))
-            .collect();
-        vars.extend(["$network".to_string(), "$contract".to_string(), "$api_url".to_string()]);
+        let mut vars: Vec<String> = context.vars.keys().map(|k| format!("${k}")).collect();
+        vars.extend([
+            "$network".to_string(),
+            "$contract".to_string(),
+            "$api_url".to_string(),
+        ]);
         vars.sort();
         vars.dedup();
         self.vars = vars;
@@ -638,9 +633,6 @@ mod tests {
         assert_eq!(expand_vars_in_token("$network", &ctx), "testnet");
         assert_eq!(expand_vars_in_token("$contract", &ctx), "C123");
         assert_eq!(expand_vars_in_token("$x", &ctx), "42");
-        assert_eq!(
-            expand_vars_in_token("info ${contract}", &ctx),
-            "info C123"
-        );
+        assert_eq!(expand_vars_in_token("info ${contract}", &ctx), "info C123");
     }
 }

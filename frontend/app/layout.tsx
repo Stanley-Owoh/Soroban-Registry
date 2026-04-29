@@ -10,8 +10,8 @@ import acceptLanguage from 'accept-language';
 
 acceptLanguage.languages(languages);
 
-const GA_PROVIDER = process.env.NEXT_PUBLIC_ANALYTICS_PROVIDER || 'ga'
-const GA_ID = process.env.NEXT_PUBLIC_GA_ID
+const GA_PROVIDER = process.env.NEXT_PUBLIC_ANALYTICS_PROVIDER || 'ga';
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://soroban-registry.com"),
@@ -67,7 +67,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
   let lng = cookieStore.get(cookieName)?.value;
-  
+
   if (!lng) {
     const headersList = await headers();
     lng = acceptLanguage.get(headersList.get('accept-language')) || fallbackLng;
@@ -78,7 +78,26 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={lng} dir={dir} suppressHydrationWarning>
       <head>
-        {/* Only load GA script if GA is selected */}
+        {/* Theme detection script — runs before paint to prevent flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('soroban-registry-theme');
+                  var supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  if (theme === 'dark' || (theme === 'system' && supportDarkMode) || (!theme && supportDarkMode)) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+
+        {/* Google Analytics — only loaded when GA provider is selected and GA_ID is set */}
         {GA_PROVIDER === 'ga' && GA_ID && (
           <>
             <Script
@@ -104,12 +123,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Providers>
           {children}
 
-          {/* called on every page to track page views */}
+          {/* Tracks page views on every route change */}
           <PageViewTracker />
-          {/* tracks external link clicks, form submissions, and client runtime errors */}
+          {/* Tracks external link clicks, form submissions, and client runtime errors */}
           <UserInteractionTracker />
         </Providers>
       </body>
     </html>
-  )
+  );
 }

@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::fmt;
 use uuid::Uuid;
 
-use crate::error::ApiError;
+use crate::{error::ApiError, state::AppState};
 
 pub const MIN_JWT_SECRET_LEN: usize = 32;
 
@@ -54,8 +54,7 @@ where
             .validate_jwt(auth_header)
             .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
-        let publisher_id = uuid::Uuid::parse_str(&claims.sub)
-            .unwrap_or(uuid::Uuid::nil());
+        let publisher_id = uuid::Uuid::parse_str(&claims.sub).unwrap_or(uuid::Uuid::nil());
 
         Ok(AuthenticatedUser {
             stellar_address: claims.sub.clone(),
@@ -68,6 +67,7 @@ where
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthClaims {
     pub sub: String,
+    pub publisher_id: uuid::Uuid,
     pub iat: i64,
     pub exp: i64,
     #[serde(default)]
@@ -160,6 +160,7 @@ impl AuthManager {
         address: &str,
         public_key_hex: &str,
         signature_hex: &str,
+        publisher_id: uuid::Uuid,
     ) -> Result<String, &'static str> {
         let challenge = self
             .challenges
@@ -181,6 +182,7 @@ impl AuthManager {
         let exp = (Utc::now() + Duration::hours(24)).timestamp();
         let claims = AuthClaims {
             sub: address.to_string(),
+            publisher_id,
             iat,
             exp,
             role: None,
@@ -199,28 +201,77 @@ impl AuthManager {
 }
 
 #[axum::async_trait]
-impl<S> axum::extract::FromRequestParts<S> for AuthClaims
-where
-    S: Send + Sync,
-{
-    type Rejection = StatusCode;
+impl FromRequestParts<AppState> for AuthenticatedUser {
+    type Rejection = ApiError;
 
     async fn from_request_parts(
-        parts: &mut axum::http::request::Parts,
-        _state: &S,
+        parts: &mut Parts,
+        state: &AppState,
     ) -> Result<Self, Self::Rejection> {
         let auth_header = parts
             .headers
             .get(header::AUTHORIZATION)
             .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.strip_prefix("Bearer "))
-            .ok_or(StatusCode::UNAUTHORIZED)?;
+            .ok_or_else(|| ApiError::unauthorized("Missing authorization header"))?;
 
-        let auth_manager =
-            AuthManager::from_env().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        auth_manager
-            .validate_jwt(auth_header)
-            .map_err(|_| StatusCode::UNAUTHORIZED)
+        if !auth_header.starts_with("Bearer ") {
+            return Err(ApiError::unauthorized(
+                "Invalid authorization header format",
+            ));
+        }
+
+        let token = &auth_header[7..];
+        let auth_manager = AuthManager::from_env()
+            .map_err(|_| ApiError::internal("Authentication configuration error"))?;
+
+        let claims = auth_manager
+            .validate_jwt(token)
+            .map_err(|_| ApiError::unauthorized("Invalid or expired token"))?;
+
+        // Resolve stellar address (sub) to publisher UUID
+        let user_id =
+            sqlx::query_scalar::<_, Uuid>("SELECT id FROM publishers WHERE stellar_address = $1")
+                .bind(&claims.sub)
+                .fetch_optional(&state.db)
+                .await?
+                .ok_or_else(|| ApiError::unauthorized("User not found in registry"))?;
+
+        Ok(AuthenticatedUser {
+            id: user_id,
+            claims,
+        })
+    }
+}
+
+#[axum::async_trait]
+impl FromRequestParts<AppState> for AuthClaims {
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        _state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let auth_header = parts
+            .headers
+            .get(header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .ok_or_else(|| ApiError::unauthorized("Missing authorization header"))?;
+
+        if !auth_header.starts_with("Bearer ") {
+            return Err(ApiError::unauthorized(
+                "Invalid authorization header format",
+            ));
+        }
+
+        let token = &auth_header[7..];
+        let auth_manager = AuthManager::from_env()
+            .map_err(|_| ApiError::internal("Authentication configuration error"))?;
+
+        let claims = auth_manager
+            .validate_jwt(token)
+            .map_err(|_| ApiError::unauthorized("Invalid or expired token"))?;
+
+        Ok(claims)
     }
 }
 
@@ -309,7 +360,12 @@ mod tests {
         let nonce = auth.create_challenge(&vk_hex);
         let sig = sk.sign(nonce.as_bytes());
         let token = auth
-            .verify_and_issue_jwt(&vk_hex, &vk_hex, &hex_encode(&sig.to_bytes()))
+            .verify_and_issue_jwt(
+                &vk_hex,
+                &vk_hex,
+                &hex_encode(&sig.to_bytes()),
+                uuid::Uuid::nil(),
+            )
             .expect("jwt must be issued");
         let claims = auth.validate_jwt(&token).expect("token must be valid");
         assert_eq!(claims.sub, vk_hex);
@@ -324,9 +380,9 @@ mod tests {
         let nonce = auth.create_challenge(&vk_hex);
         let sig = sk.sign(nonce.as_bytes());
         let sig_hex = hex_encode(&sig.to_bytes());
-        let first = auth.verify_and_issue_jwt(&vk_hex, &vk_hex, &sig_hex);
+        let first = auth.verify_and_issue_jwt(&vk_hex, &vk_hex, &sig_hex, uuid::Uuid::nil());
         assert!(first.is_ok());
-        let second = auth.verify_and_issue_jwt(&vk_hex, &vk_hex, &sig_hex);
+        let second = auth.verify_and_issue_jwt(&vk_hex, &vk_hex, &sig_hex, uuid::Uuid::nil());
         assert!(second.is_err());
     }
 

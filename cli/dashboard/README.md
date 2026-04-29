@@ -47,15 +47,41 @@ SOROBAN_REGISTRY_WS_URL=ws://127.0.0.1:8787 node dist/index.js dashboard --refre
 The dashboard expects JSON messages like:
 
 ```json
-{ "type": "deployment_created", "payload": { "id": "uuid", "contractId": "C...", "network": "testnet", "category": "dex", "publisher": "G...", "timestamp": "2026-03-27T00:00:00.000Z" } }
+{
+  "type": "deployment_created",
+  "payload": {
+    "id": "uuid",
+    "contractId": "C...",
+    "network": "testnet",
+    "category": "dex",
+    "publisher": "G...",
+    "timestamp": "2026-03-27T00:00:00.000Z"
+  }
+}
 ```
 
 ```json
-{ "type": "contract_interaction", "payload": { "id": "uuid", "contractId": "C...", "network": "testnet", "timestamp": "2026-03-27T00:00:00.000Z" } }
+{
+  "type": "contract_interaction",
+  "payload": {
+    "id": "uuid",
+    "contractId": "C...",
+    "network": "testnet",
+    "timestamp": "2026-03-27T00:00:00.000Z"
+  }
+}
 ```
 
 ```json
-{ "type": "network_status", "payload": { "network": "testnet", "status": "connected", "latencyMs": 42, "timestamp": "2026-03-27T00:00:00.000Z" } }
+{
+  "type": "network_status",
+  "payload": {
+    "network": "testnet",
+    "status": "connected",
+    "latencyMs": 42,
+    "timestamp": "2026-03-27T00:00:00.000Z"
+  }
+}
 ```
 
 The mock server supports basic client messages:
@@ -63,4 +89,3 @@ The mock server supports basic client messages:
 - `{"type":"subscribe","payload":{"filters":{...}}}`
 - `{"type":"set_filters","payload":{"filters":{...}}}`
 - `{"type":"refresh","payload":{}}`
-

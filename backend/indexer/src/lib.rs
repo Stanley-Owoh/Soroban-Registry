@@ -8,6 +8,7 @@ pub mod detector;
 pub mod reorg;
 pub mod rpc;
 pub mod state;
+pub mod telemetry;
 
 pub use backoff::ExponentialBackoff;
 pub use config::{DatabaseConfig, NetworkConfig, ServiceConfig};
@@ -16,3 +17,4 @@ pub use detector::detect_contract_deployments;
 pub use reorg::ReorgHandler;
 pub use rpc::{ContractDeployment, Ledger, Operation, StellarRpcClient};
 pub use state::{IndexerState, StateManager};
+pub use telemetry::inject_current_trace_context;

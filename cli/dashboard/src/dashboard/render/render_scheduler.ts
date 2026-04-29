@@ -5,7 +5,7 @@ export class RenderScheduler {
 
   constructor(
     private readonly minIntervalMs: number,
-    private readonly render: () => void
+    private readonly render: () => void,
   ) {}
 
   // Throttles terminal re-renders so high-frequency WS events don't cause lag.
@@ -29,4 +29,3 @@ export class RenderScheduler {
     this.render();
   }
 }
-

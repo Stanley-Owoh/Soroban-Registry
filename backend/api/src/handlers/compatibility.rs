@@ -117,15 +117,20 @@ async fn resolve_contract_identity(
         }
     }
 
-    sqlx::query_as::<_, (Uuid, String)>("SELECT id, contract_id FROM contracts WHERE contract_id = $1")
-        .bind(contract_id)
-        .fetch_optional(&state.db)
-        .await
-        .map_err(|e| ApiError::internal(format!("DB error: {e}")))?
-        .ok_or_else(|| ApiError::not_found("NotFound", "Contract not found"))
+    sqlx::query_as::<_, (Uuid, String)>(
+        "SELECT id, contract_id FROM contracts WHERE contract_id = $1",
+    )
+    .bind(contract_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| ApiError::internal(format!("DB error: {e}")))?
+    .ok_or_else(|| ApiError::not_found("NotFound", "Contract not found"))
 }
 
-async fn load_versions(state: &AppState, contract_uuid: Uuid) -> ApiResult<Vec<ContractVersionRecord>> {
+async fn load_versions(
+    state: &AppState,
+    contract_uuid: Uuid,
+) -> ApiResult<Vec<ContractVersionRecord>> {
     sqlx::query_as::<_, ContractVersionRecord>(
         "SELECT id, contract_id, version, wasm_hash, source_url, commit_hash, release_notes, created_at \
          FROM contract_versions WHERE contract_id = $1 ORDER BY created_at ASC",
@@ -152,7 +157,12 @@ async fn load_overrides(
 
     Ok(rows
         .into_iter()
-        .map(|row| ((row.source_version.clone(), row.target_version.clone()), row))
+        .map(|row| {
+            (
+                (row.source_version.clone(), row.target_version.clone()),
+                row,
+            )
+        })
         .collect())
 }
 
@@ -308,7 +318,8 @@ pub async fn get_contract_compatibility(
     State(state): State<AppState>,
     Path(contract_id): Path<String>,
 ) -> ApiResult<Json<ContractVersionCompatibilityResponse>> {
-    let (contract_uuid, contract_stellar_id) = resolve_contract_identity(&state, &contract_id).await?;
+    let (contract_uuid, contract_stellar_id) =
+        resolve_contract_identity(&state, &contract_id).await?;
     let response = compute_upgrade_matrix(&state, contract_uuid, &contract_stellar_id).await?;
     Ok(Json(response))
 }
@@ -318,7 +329,8 @@ pub async fn export_contract_compatibility(
     Path(contract_id): Path<String>,
     Query(params): Query<ExportFormat>,
 ) -> ApiResult<impl IntoResponse> {
-    let (contract_uuid, contract_stellar_id) = resolve_contract_identity(&state, &contract_id).await?;
+    let (contract_uuid, contract_stellar_id) =
+        resolve_contract_identity(&state, &contract_id).await?;
     let response = compute_upgrade_matrix(&state, contract_uuid, &contract_stellar_id).await?;
 
     let export_rows = response
@@ -360,7 +372,10 @@ pub async fn export_contract_compatibility(
                 axum::http::StatusCode::OK,
                 [
                     (header::CONTENT_TYPE, "text/csv; charset=utf-8"),
-                    (header::CONTENT_DISPOSITION, "attachment; filename=\"compatibility.csv\""),
+                    (
+                        header::CONTENT_DISPOSITION,
+                        "attachment; filename=\"compatibility.csv\"",
+                    ),
                 ],
                 csv,
             )
@@ -377,11 +392,12 @@ pub async fn add_contract_compatibility(
 ) -> ApiResult<Json<serde_json::Value>> {
     let (source_contract_uuid, _) = resolve_contract_identity(&state, &contract_id).await?;
 
-    let target_exists: bool = sqlx::query_scalar("SELECT COUNT(*) > 0 FROM contracts WHERE id = $1")
-        .bind(body.target_contract_id)
-        .fetch_one(&state.db)
-        .await
-        .map_err(|e| ApiError::internal(format!("DB error: {e}")))?;
+    let target_exists: bool =
+        sqlx::query_scalar("SELECT COUNT(*) > 0 FROM contracts WHERE id = $1")
+            .bind(body.target_contract_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| ApiError::internal(format!("DB error: {e}")))?;
 
     if !target_exists {
         return Err(ApiError::not_found("NotFound", "Target contract not found"));
@@ -418,13 +434,20 @@ pub async fn add_contract_compatibility(
 mod tests {
     use super::*;
 
-    fn make_cell(target_version: &str, is_compatible: bool, breaking_changes: Vec<&str>) -> VersionCompatibilityCell {
+    fn make_cell(
+        target_version: &str,
+        is_compatible: bool,
+        breaking_changes: Vec<&str>,
+    ) -> VersionCompatibilityCell {
         VersionCompatibilityCell {
             target_version: target_version.to_string(),
             is_compatible,
             has_breaking_changes: !breaking_changes.is_empty(),
             breaking_change_count: breaking_changes.len(),
-            breaking_changes: breaking_changes.into_iter().map(|item| item.to_string()).collect(),
+            breaking_changes: breaking_changes
+                .into_iter()
+                .map(|item| item.to_string())
+                .collect(),
             stellar_version: None,
         }
     }
@@ -443,7 +466,11 @@ mod tests {
             source_version: "1.0.0".to_string(),
             targets: vec![
                 make_cell("1.1.0", true, vec![]),
-                make_cell("2.0.0", false, vec!["Function 'balance' return type changed"]),
+                make_cell(
+                    "2.0.0",
+                    false,
+                    vec!["Function 'balance' return type changed"],
+                ),
             ],
         }];
 

@@ -9,8 +9,13 @@ export default function ContractCardSkeleton() {
       aria-label="Loading contract"
     >
       <div className="relative h-full flex flex-col">
-        {/* Header: name + network badge */}
-        <div className="flex items-start justify-between mb-3">
+        {/* Header: logo + name + network badge */}
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <LoadingSkeleton
+            width="2.5rem"
+            height="2.5rem"
+            className="rounded-lg shrink-0"
+          />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <LoadingSkeleton width="60%" height="1.5rem" />
@@ -26,8 +31,16 @@ export default function ContractCardSkeleton() {
 
         {/* Category + verified badge row */}
         <div className="flex items-center justify-between gap-2 mb-4">
-          <LoadingSkeleton width="6rem" height="1.75rem" className="rounded-lg" />
-          <LoadingSkeleton width="4.5rem" height="1.25rem" className="rounded-full" />
+          <LoadingSkeleton
+            width="6rem"
+            height="1.75rem"
+            className="rounded-lg"
+          />
+          <LoadingSkeleton
+            width="4.5rem"
+            height="1.25rem"
+            className="rounded-full"
+          />
         </div>
 
         {/* Description */}
@@ -52,9 +65,21 @@ export default function ContractCardSkeleton() {
 
         {/* Action buttons */}
         <div className="flex flex-wrap items-center gap-2 pt-4 mt-auto border-t border-border">
-          <LoadingSkeleton width="6.5rem" height="1.75rem" className="rounded-md" />
-          <LoadingSkeleton width="7.5rem" height="1.75rem" className="rounded-md" />
-          <LoadingSkeleton width="7rem"   height="1.75rem" className="rounded-md" />
+          <LoadingSkeleton
+            width="6.5rem"
+            height="1.75rem"
+            className="rounded-md"
+          />
+          <LoadingSkeleton
+            width="7.5rem"
+            height="1.75rem"
+            className="rounded-md"
+          />
+          <LoadingSkeleton
+            width="7rem"
+            height="1.75rem"
+            className="rounded-md"
+          />
         </div>
       </div>
       <span className="sr-only">Loading contract card</span>

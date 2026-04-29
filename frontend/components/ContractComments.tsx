@@ -1,11 +1,17 @@
-'use client';
+"use client";
 
-import { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import type { Comment } from '@/lib/api';
-import { formatPublicKey } from '@/lib/utils/formatting';
-import { ChevronUp, ChevronDown, MessageSquare, Flag, AlertTriangle } from 'lucide-react';
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import type { Comment } from "@/lib/api";
+import { formatPublicKey } from "@/lib/utils/formatting";
+import {
+  ChevronUp,
+  ChevronDown,
+  MessageSquare,
+  Flag,
+  AlertTriangle,
+} from "lucide-react";
 
 interface ContractCommentsProps {
   contractId: string;
@@ -13,7 +19,7 @@ interface ContractCommentsProps {
 
 // Minimal inline markdown renderer: handles bold, italic, inline code, fenced code blocks.
 function renderMarkdown(text: string): React.ReactNode[] {
-  const lines = text.split('\n');
+  const lines = text.split("\n");
   const result: React.ReactNode[] = [];
   let i = 0;
 
@@ -21,8 +27,8 @@ function renderMarkdown(text: string): React.ReactNode[] {
     const line = lines[i];
 
     // Fenced code block
-    if (line.trimStart().startsWith('```')) {
-      const fence = line.trimStart().startsWith('```') ? '```' : '~~~';
+    if (line.trimStart().startsWith("```")) {
+      const fence = line.trimStart().startsWith("```") ? "```" : "~~~";
       const lang = line.trimStart().slice(fence.length).trim();
       const codeLines: string[] = [];
       i++;
@@ -36,8 +42,8 @@ function renderMarkdown(text: string): React.ReactNode[] {
           className="my-2 overflow-x-auto rounded-lg border border-border bg-background p-3 text-xs font-mono leading-5 text-foreground"
           data-lang={lang || undefined}
         >
-          {codeLines.join('\n')}
-        </pre>
+          {codeLines.join("\n")}
+        </pre>,
       );
       i++;
       continue;
@@ -46,7 +52,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     result.push(
       <span key={i} className="block leading-6">
         {renderInline(line)}
-      </span>
+      </span>,
     );
     i++;
   }
@@ -66,9 +72,9 @@ function renderInline(text: string): React.ReactNode[] {
       parts.push(text.slice(last, match.index));
     }
     const token = match[0];
-    if (token.startsWith('**')) {
+    if (token.startsWith("**")) {
       parts.push(<strong key={match.index}>{token.slice(2, -2)}</strong>);
-    } else if (token.startsWith('_')) {
+    } else if (token.startsWith("_")) {
       parts.push(<em key={match.index}>{token.slice(1, -1)}</em>);
     } else {
       parts.push(
@@ -77,7 +83,7 @@ function renderInline(text: string): React.ReactNode[] {
           className="rounded bg-accent px-1 py-0.5 font-mono text-xs text-foreground"
         >
           {token.slice(1, -1)}
-        </code>
+        </code>,
       );
     }
     last = match.index + token.length;
@@ -93,7 +99,7 @@ function renderInline(text: string): React.ReactNode[] {
 function formatRelative(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return 'just now';
+  if (minutes < 1) return "just now";
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
@@ -113,39 +119,49 @@ interface CommentCardProps {
   isReply?: boolean;
 }
 
-function CommentCard({ comment, contractId, isReply = false }: CommentCardProps) {
+function CommentCard({
+  comment,
+  contractId,
+  isReply = false,
+}: CommentCardProps) {
   const queryClient = useQueryClient();
   const [replyOpen, setReplyOpen] = useState(false);
-  const [replyBody, setReplyBody] = useState('');
+  const [replyBody, setReplyBody] = useState("");
 
   const voteMutation = useMutation({
-    mutationFn: (direction: 'up' | 'down') =>
+    mutationFn: (direction: "up" | "down") =>
       api.voteComment(comment.id, contractId, direction),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contract-comments', contractId] });
+      queryClient.invalidateQueries({
+        queryKey: ["contract-comments", contractId],
+      });
     },
   });
 
   const flagMutation = useMutation({
-    mutationFn: () => api.flagComment(comment.id, contractId, 'spam'),
+    mutationFn: () => api.flagComment(comment.id, contractId, "spam"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contract-comments', contractId] });
+      queryClient.invalidateQueries({
+        queryKey: ["contract-comments", contractId],
+      });
     },
   });
 
   const replyMutation = useMutation({
     mutationFn: (body: string) => api.postComment(contractId, body, comment.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contract-comments', contractId] });
+      queryClient.invalidateQueries({
+        queryKey: ["contract-comments", contractId],
+      });
       setReplyOpen(false);
-      setReplyBody('');
+      setReplyBody("");
     },
   });
 
   if (comment.flagged) {
     return (
       <div
-        className={`rounded-xl border border-border bg-muted/40 p-4 ${isReply ? 'ml-8' : ''}`}
+        className={`rounded-xl border border-border bg-muted/40 p-4 ${isReply ? "ml-8" : ""}`}
       >
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <AlertTriangle className="w-3.5 h-3.5" />
@@ -156,7 +172,9 @@ function CommentCard({ comment, contractId, isReply = false }: CommentCardProps)
   }
 
   return (
-    <div className={`rounded-xl border border-border bg-card p-4 ${isReply ? 'ml-8' : ''}`}>
+    <div
+      className={`rounded-xl border border-border bg-card p-4 ${isReply ? "ml-8" : ""}`}
+    >
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
@@ -181,7 +199,7 @@ function CommentCard({ comment, contractId, isReply = false }: CommentCardProps)
           <button
             type="button"
             aria-label="Upvote"
-            onClick={() => voteMutation.mutate('up')}
+            onClick={() => voteMutation.mutate("up")}
             disabled={voteMutation.isPending}
             className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
           >
@@ -193,7 +211,7 @@ function CommentCard({ comment, contractId, isReply = false }: CommentCardProps)
           <button
             type="button"
             aria-label="Downvote"
-            onClick={() => voteMutation.mutate('down')}
+            onClick={() => voteMutation.mutate("down")}
             disabled={voteMutation.isPending}
             className="p-0.5 rounded text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-50"
           >
@@ -243,13 +261,13 @@ function CommentCard({ comment, contractId, isReply = false }: CommentCardProps)
               onClick={() => replyMutation.mutate(replyBody.trim())}
               className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
-              {replyMutation.isPending ? 'Posting…' : 'Post reply'}
+              {replyMutation.isPending ? "Posting…" : "Post reply"}
             </button>
             <button
               type="button"
               onClick={() => {
                 setReplyOpen(false);
-                setReplyBody('');
+                setReplyBody("");
               }}
               className="px-3 py-1.5 text-xs font-medium rounded-lg bg-accent text-muted-foreground hover:bg-muted transition-colors"
             >
@@ -269,21 +287,25 @@ function CommentCard({ comment, contractId, isReply = false }: CommentCardProps)
 
 // ──────────────────────────────────────────────────────────────────────────────
 
-export default function ContractComments({ contractId }: ContractCommentsProps) {
+export default function ContractComments({
+  contractId,
+}: ContractCommentsProps) {
   const queryClient = useQueryClient();
-  const [commentBody, setCommentBody] = useState('');
+  const [commentBody, setCommentBody] = useState("");
   const [previewMode, setPreviewMode] = useState(false);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['contract-comments', contractId],
+    queryKey: ["contract-comments", contractId],
     queryFn: () => api.getComments(contractId),
   });
 
   const postMutation = useMutation({
     mutationFn: (body: string) => api.postComment(contractId, body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contract-comments', contractId] });
-      setCommentBody('');
+      queryClient.invalidateQueries({
+        queryKey: ["contract-comments", contractId],
+      });
+      setCommentBody("");
       setPreviewMode(false);
     },
   });
@@ -324,8 +346,8 @@ export default function ContractComments({ contractId }: ContractCommentsProps) 
             onClick={() => setPreviewMode(false)}
             className={`text-xs font-medium px-2 py-1 rounded transition-colors ${
               !previewMode
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Write
@@ -335,8 +357,8 @@ export default function ContractComments({ contractId }: ContractCommentsProps) 
             onClick={() => setPreviewMode(true)}
             className={`text-xs font-medium px-2 py-1 rounded transition-colors ${
               previewMode
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Preview
@@ -345,9 +367,13 @@ export default function ContractComments({ contractId }: ContractCommentsProps) 
 
         {previewMode ? (
           <div className="min-h-[80px] text-sm text-foreground leading-relaxed">
-            {commentBody.trim()
-              ? renderMarkdown(commentBody)
-              : <span className="text-muted-foreground text-xs">Nothing to preview.</span>}
+            {commentBody.trim() ? (
+              renderMarkdown(commentBody)
+            ) : (
+              <span className="text-muted-foreground text-xs">
+                Nothing to preview.
+              </span>
+            )}
           </div>
         ) : (
           <textarea
@@ -369,7 +395,7 @@ export default function ContractComments({ contractId }: ContractCommentsProps) 
             onClick={() => postMutation.mutate(commentBody.trim())}
             className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
-            {postMutation.isPending ? 'Posting…' : 'Post comment'}
+            {postMutation.isPending ? "Posting…" : "Post comment"}
           </button>
         </div>
 

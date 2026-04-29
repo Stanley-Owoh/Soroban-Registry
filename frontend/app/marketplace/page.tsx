@@ -1,8 +1,15 @@
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
-import { CreditCard, FileText, Receipt, ShieldCheck, ShoppingCart, Zap } from 'lucide-react';
-import Navbar from '@/components/Navbar';
+import { useMemo, useState } from "react";
+import {
+  CreditCard,
+  FileText,
+  Receipt,
+  ShieldCheck,
+  ShoppingCart,
+  Zap,
+} from "lucide-react";
+import Navbar from "@/components/Navbar";
 
 type Product = {
   id: string;
@@ -15,40 +22,58 @@ type Product = {
 
 const PRODUCTS: Product[] = [
   {
-    id: 'dex-pro',
-    name: 'DEX Routing Engine',
-    tier: 'Commercial',
+    id: "dex-pro",
+    name: "DEX Routing Engine",
+    tier: "Commercial",
     price: 249,
-    network: 'mainnet',
-    summary: 'Multi-hop routing logic with upgrade entitlement and enterprise support.',
+    network: "mainnet",
+    summary:
+      "Multi-hop routing logic with upgrade entitlement and enterprise support.",
   },
   {
-    id: 'vault-kit',
-    name: 'Vault Strategy Kit',
-    tier: 'Team',
+    id: "vault-kit",
+    name: "Vault Strategy Kit",
+    tier: "Team",
     price: 149,
-    network: 'testnet',
-    summary: 'Managed strategy templates for yield vault contracts and staging deployments.',
+    network: "testnet",
+    summary:
+      "Managed strategy templates for yield vault contracts and staging deployments.",
   },
   {
-    id: 'oracle-feed',
-    name: 'Oracle Feed Adapter',
-    tier: 'Starter',
+    id: "oracle-feed",
+    name: "Oracle Feed Adapter",
+    tier: "Starter",
     price: 79,
-    network: 'futurenet',
-    summary: 'Lightweight price feed license with API examples and schema docs.',
+    network: "futurenet",
+    summary:
+      "Lightweight price feed license with API examples and schema docs.",
   },
 ];
 
 const TRANSACTIONS = [
-  { id: 'TX-1042', item: 'DEX Routing Engine', amount: '$249', status: 'Settled' },
-  { id: 'TX-1038', item: 'Vault Strategy Kit', amount: '$149', status: 'Pending' },
-  { id: 'TX-1027', item: 'Oracle Feed Adapter', amount: '$79', status: 'Settled' },
+  {
+    id: "TX-1042",
+    item: "DEX Routing Engine",
+    amount: "$249",
+    status: "Settled",
+  },
+  {
+    id: "TX-1038",
+    item: "Vault Strategy Kit",
+    amount: "$149",
+    status: "Pending",
+  },
+  {
+    id: "TX-1027",
+    item: "Oracle Feed Adapter",
+    amount: "$79",
+    status: "Settled",
+  },
 ];
 
 const LICENSES = [
-  { name: 'DEX Routing Engine', seats: '12 seats', renews: '2026-01-18' },
-  { name: 'Oracle Feed Adapter', seats: '3 seats', renews: '2025-11-02' },
+  { name: "DEX Routing Engine", seats: "12 seats", renews: "2026-01-18" },
+  { name: "Oracle Feed Adapter", seats: "3 seats", renews: "2025-11-02" },
 ];
 
 export default function MarketplacePage() {
@@ -56,7 +81,7 @@ export default function MarketplacePage() {
 
   const subtotal = useMemo(
     () => cart.reduce((sum, item) => sum + item.price, 0),
-    [cart]
+    [cart],
   );
 
   const addToCart = (product: Product) => {
@@ -87,7 +112,8 @@ export default function MarketplacePage() {
               Contract marketplace with cart and transaction flows
             </h1>
             <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
-              Mock UI for license sales, checkout review, payment capture, transaction history, and active license management.
+              Mock UI for license sales, checkout review, payment capture,
+              transaction history, and active license management.
             </p>
           </div>
         </div>
@@ -98,20 +124,31 @@ export default function MarketplacePage() {
           <div className="space-y-6">
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {PRODUCTS.map((product) => (
-                <article key={product.id} className="gradient-border-card card-hover p-6">
+                <article
+                  key={product.id}
+                  className="gradient-border-card card-hover p-6"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">{product.network}</p>
-                      <h2 className="mt-2 text-xl font-semibold">{product.name}</h2>
+                      <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                        {product.network}
+                      </p>
+                      <h2 className="mt-2 text-xl font-semibold">
+                        {product.name}
+                      </h2>
                     </div>
                     <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                       {product.tier}
                     </span>
                   </div>
-                  <p className="mt-4 text-sm leading-6 text-muted-foreground">{product.summary}</p>
+                  <p className="mt-4 text-sm leading-6 text-muted-foreground">
+                    {product.summary}
+                  </p>
                   <div className="mt-6 flex items-end justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground">License price</p>
+                      <p className="text-xs text-muted-foreground">
+                        License price
+                      </p>
                       <p className="text-3xl font-bold">${product.price}</p>
                     </div>
                     <button
@@ -133,13 +170,20 @@ export default function MarketplacePage() {
               </div>
               <div className="mt-5 space-y-3">
                 {TRANSACTIONS.map((transaction) => (
-                  <div key={transaction.id} className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background/70 p-4 md:flex-row md:items-center md:justify-between">
+                  <div
+                    key={transaction.id}
+                    className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background/70 p-4 md:flex-row md:items-center md:justify-between"
+                  >
                     <div>
                       <p className="font-medium">{transaction.item}</p>
-                      <p className="text-sm text-muted-foreground">{transaction.id}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {transaction.id}
+                      </p>
                     </div>
                     <div className="flex items-center gap-4">
-                      <span className="text-sm font-semibold">{transaction.amount}</span>
+                      <span className="text-sm font-semibold">
+                        {transaction.amount}
+                      </span>
                       <span className="rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
                         {transaction.status}
                       </span>
@@ -163,11 +207,16 @@ export default function MarketplacePage() {
                   </p>
                 ) : (
                   cart.map((item) => (
-                    <div key={item.id} className="rounded-2xl border border-border/70 p-4">
+                    <div
+                      key={item.id}
+                      className="rounded-2xl border border-border/70 p-4"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-muted-foreground">{item.tier} license</p>
+                          <p className="text-sm text-muted-foreground">
+                            {item.tier} license
+                          </p>
                         </div>
                         <button
                           type="button"
@@ -177,7 +226,9 @@ export default function MarketplacePage() {
                           Remove
                         </button>
                       </div>
-                      <p className="mt-3 text-lg font-semibold">${item.price}</p>
+                      <p className="mt-3 text-lg font-semibold">
+                        ${item.price}
+                      </p>
                     </div>
                   ))
                 )}
@@ -197,11 +248,15 @@ export default function MarketplacePage() {
                   </div>
                   <div className="mt-2 flex items-center justify-between">
                     <span className="text-muted-foreground">Processing</span>
-                    <span className="font-semibold">${cart.length === 0 ? 0 : 12}</span>
+                    <span className="font-semibold">
+                      ${cart.length === 0 ? 0 : 12}
+                    </span>
                   </div>
                   <div className="mt-3 border-t border-border pt-3 flex items-center justify-between text-base">
                     <span className="font-semibold">Total</span>
-                    <span className="font-bold">${subtotal + (cart.length === 0 ? 0 : 12)}</span>
+                    <span className="font-bold">
+                      ${subtotal + (cart.length === 0 ? 0 : 12)}
+                    </span>
                   </div>
                 </div>
                 <button
@@ -212,7 +267,8 @@ export default function MarketplacePage() {
                   Complete mock checkout
                 </button>
                 <p className="text-xs text-muted-foreground">
-                  Payment integration is intentionally stubbed. This page is for flow and layout scaffolding.
+                  Payment integration is intentionally stubbed. This page is for
+                  flow and layout scaffolding.
                 </p>
               </div>
             </section>
@@ -224,7 +280,10 @@ export default function MarketplacePage() {
               </div>
               <div className="mt-5 space-y-3">
                 {LICENSES.map((license) => (
-                  <div key={license.name} className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                  <div
+                    key={license.name}
+                    className="rounded-2xl border border-border/70 bg-background/70 p-4"
+                  >
                     <div className="flex items-center justify-between gap-3">
                       <p className="font-medium">{license.name}</p>
                       <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
@@ -247,21 +306,24 @@ export default function MarketplacePage() {
             <Zap className="h-5 w-5 text-primary" />
             <h3 className="mt-4 text-lg font-semibold">Fast procurement</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Buyer flow is arranged around quick add-to-cart actions and compact checkout review.
+              Buyer flow is arranged around quick add-to-cart actions and
+              compact checkout review.
             </p>
           </div>
           <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
             <FileText className="h-5 w-5 text-primary" />
             <h3 className="mt-4 text-lg font-semibold">License records</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Dashboard cards reserve space for seat counts, renewal dates, and entitlement details.
+              Dashboard cards reserve space for seat counts, renewal dates, and
+              entitlement details.
             </p>
           </div>
           <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
             <Receipt className="h-5 w-5 text-primary" />
             <h3 className="mt-4 text-lg font-semibold">Transaction tracking</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              History rows are already separated from the cart flow so real settlement events can slot in later.
+              History rows are already separated from the cart flow so real
+              settlement events can slot in later.
             </p>
           </div>
         </section>

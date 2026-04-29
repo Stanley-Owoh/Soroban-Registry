@@ -62,7 +62,10 @@ interface RuleMatch {
   title: string;
   severity: AuditSeverity;
   category: AuditCategory;
-  test: (source: string, lines: string[]) => Array<{ line: number; evidence: string }>;
+  test: (
+    source: string,
+    lines: string[],
+  ) => Array<{ line: number; evidence: string }>;
   explanation: string;
   recommendation: string;
   confidence: number;
@@ -88,8 +91,14 @@ function firstEvidence(lines: string[], predicate: (line: string) => boolean) {
 }
 
 function publicFunctionBlocks(source: string) {
-  const blocks: Array<{ name: string; line: number; body: string; signature: string }> = [];
-  const matcher = /pub\s+fn\s+([A-Za-z0-9_]+)\s*\([^)]*\)(?:\s*->\s*[^{]+)?\s*\{/g;
+  const blocks: Array<{
+    name: string;
+    line: number;
+    body: string;
+    signature: string;
+  }> = [];
+  const matcher =
+    /pub\s+fn\s+([A-Za-z0-9_]+)\s*\([^)]*\)(?:\s*->\s*[^{]+)?\s*\{/g;
   let match: RegExpExecArray | null;
 
   while ((match = matcher.exec(source)) !== null) {
@@ -105,7 +114,10 @@ function publicFunctionBlocks(source: string) {
     blocks.push({
       name: match[1],
       line: lineNumberForIndex(source, match.index),
-      body: source.slice(matcher.lastIndex, Math.max(matcher.lastIndex, cursor - 1)),
+      body: source.slice(
+        matcher.lastIndex,
+        Math.max(matcher.lastIndex, cursor - 1),
+      ),
       signature: match[0],
     });
   }
@@ -150,9 +162,16 @@ const AUDIT_RULES: RuleMatch[] = [
     category: "access-control",
     test: (source) =>
       publicFunctionBlocks(source)
-        .filter((block) => /(set_|update_|mint|burn|transfer|withdraw|admin|upgrade)/.test(block.name))
+        .filter((block) =>
+          /(set_|update_|mint|burn|transfer|withdraw|admin|upgrade)/.test(
+            block.name,
+          ),
+        )
         .filter((block) => !/require_auth\s*\(/.test(block.body))
-        .map((block) => ({ line: block.line, evidence: block.signature.trim() })),
+        .map((block) => ({
+          line: block.line,
+          evidence: block.signature.trim(),
+        })),
     explanation:
       "The function name and body indicate a privileged state change, but no Soroban Address::require_auth check was found in the function body.",
     recommendation:
@@ -166,7 +185,12 @@ const AUDIT_RULES: RuleMatch[] = [
     severity: "high",
     category: "runtime-safety",
     test: (_source, lines) =>
-      firstEvidence(lines, (line) => /\b(panic!|unwrap\s*\(|expect\s*\()/.test(line) && !line.includes("#[test]")),
+      firstEvidence(
+        lines,
+        (line) =>
+          /\b(panic!|unwrap\s*\(|expect\s*\()/.test(line) &&
+          !line.includes("#[test]"),
+      ),
     explanation:
       "Panics make failure modes harder to compose and can hide recoverable contract errors from callers.",
     recommendation:
@@ -183,8 +207,9 @@ const AUDIT_RULES: RuleMatch[] = [
       firstEvidence(
         lines,
         (line) =>
-          /(amount|balance|supply|allowance|counter).*(\+=|-=|\*=| \+ | - | \* )/.test(line) &&
-          !/checked_|saturating_|MAX_/.test(line),
+          /(amount|balance|supply|allowance|counter).*(\+=|-=|\*=| \+ | - | \* )/.test(
+            line,
+          ) && !/checked_|saturating_|MAX_/.test(line),
       ),
     explanation:
       "Financial state transitions should use checked or saturating arithmetic so overflow behavior is explicit.",
@@ -231,7 +256,9 @@ const AUDIT_RULES: RuleMatch[] = [
     severity: "medium",
     category: "maintainability",
     test: (_source, lines) =>
-      firstEvidence(lines, (line) => /"(G[A-Z2-7]{20,}|0x[a-fA-F0-9]{32,})"/.test(line)),
+      firstEvidence(lines, (line) =>
+        /"(G[A-Z2-7]{20,}|0x[a-fA-F0-9]{32,})"/.test(line),
+      ),
     explanation:
       "Hardcoded principals make upgrades, testing, and multi-network deployment brittle.",
     recommendation:
@@ -245,9 +272,14 @@ const AUDIT_RULES: RuleMatch[] = [
     severity: "low",
     category: "observability",
     test: (source) => {
-      const mutatesState = /storage\(\)\.(persistent|temporary|instance)\(\)\.(set|remove)/.test(source);
+      const mutatesState =
+        /storage\(\)\.(persistent|temporary|instance)\(\)\.(set|remove)/.test(
+          source,
+        );
       const emitsEvent = /events\(\)\.publish/.test(source);
-      return mutatesState && !emitsEvent ? [{ line: 1, evidence: "storage writes without events().publish" }] : [];
+      return mutatesState && !emitsEvent
+        ? [{ line: 1, evidence: "storage writes without events().publish" }]
+        : [];
     },
     explanation:
       "Events make off-chain indexing, monitoring, and incident response easier for registry consumers.",
@@ -262,7 +294,11 @@ const AUDIT_RULES: RuleMatch[] = [
     severity: "medium",
     category: "storage",
     test: (_source, lines) =>
-      firstEvidence(lines, (line) => /Symbol::new\([^,]+,\s*"/.test(line) || /&str\s*=\s*"/.test(line)),
+      firstEvidence(
+        lines,
+        (line) =>
+          /Symbol::new\([^,]+,\s*"/.test(line) || /&str\s*=\s*"/.test(line),
+      ),
     explanation:
       "String keys are easy to duplicate and do not encode the shape of the data stored behind them.",
     recommendation:
@@ -272,50 +308,65 @@ const AUDIT_RULES: RuleMatch[] = [
   },
 ];
 
-function calculateSignals(source: string, findings: AuditFinding[]): AuditSignal[] {
+function calculateSignals(
+  source: string,
+  findings: AuditFinding[],
+): AuditSignal[] {
   const publicFns = publicFunctionBlocks(source);
   const authCoverage =
     publicFns.length === 0
       ? 1
-      : publicFns.filter((block) => /require_auth\s*\(/.test(block.body)).length / publicFns.length;
+      : publicFns.filter((block) => /require_auth\s*\(/.test(block.body))
+          .length / publicFns.length;
   const resultCoverage =
     publicFns.length === 0
       ? 1
-      : publicFns.filter((block) => /->\s*Result\b/.test(block.signature)).length / publicFns.length;
-  const storageTyping = /enum\s+[A-Za-z0-9_]*Key|contracttype/.test(source) ? 1 : 0;
+      : publicFns.filter((block) => /->\s*Result\b/.test(block.signature))
+          .length / publicFns.length;
+  const storageTyping = /enum\s+[A-Za-z0-9_]*Key|contracttype/.test(source)
+    ? 1
+    : 0;
   const eventCoverage = /events\(\)\.publish/.test(source) ? 1 : 0;
-  const findingPressure = Math.min(1, findings.reduce((sum, finding) => sum + finding.weight, 0) / 7);
+  const findingPressure = Math.min(
+    1,
+    findings.reduce((sum, finding) => sum + finding.weight, 0) / 7,
+  );
 
   return [
     {
       name: "Authorization coverage",
       value: Math.round(authCoverage * 100),
       contribution: Math.round(authCoverage * 12),
-      explanation: "Share of public functions with an explicit require_auth check.",
+      explanation:
+        "Share of public functions with an explicit require_auth check.",
     },
     {
       name: "Recoverable errors",
       value: Math.round(resultCoverage * 100),
       contribution: Math.round(resultCoverage * 8),
-      explanation: "Share of public functions that expose Result-based failures.",
+      explanation:
+        "Share of public functions that expose Result-based failures.",
     },
     {
       name: "Typed storage",
       value: storageTyping * 100,
       contribution: storageTyping * 8,
-      explanation: "Detects contracttype-backed storage keys instead of raw strings.",
+      explanation:
+        "Detects contracttype-backed storage keys instead of raw strings.",
     },
     {
       name: "Event observability",
       value: eventCoverage * 100,
       contribution: eventCoverage * 5,
-      explanation: "Rewards event publication for registry and indexer visibility.",
+      explanation:
+        "Rewards event publication for registry and indexer visibility.",
     },
     {
       name: "Risk pressure",
       value: Math.round((1 - findingPressure) * 100),
       contribution: -Math.round(findingPressure * 20),
-      explanation: "Aggregates weighted vulnerability and best-practice findings.",
+      explanation:
+        "Aggregates weighted vulnerability and best-practice findings.",
     },
   ];
 }
@@ -328,13 +379,18 @@ function gradeForScore(score: number): AuditReport["grade"] {
   return "F";
 }
 
-function recommendationPriority(severity: AuditSeverity): AuditRecommendation["priority"] {
+function recommendationPriority(
+  severity: AuditSeverity,
+): AuditRecommendation["priority"] {
   if (severity === "critical" || severity === "high") return "must-fix";
   if (severity === "medium") return "should-fix";
   return "consider";
 }
 
-export function analyzeContractSource(source: string, generatedAt = new Date().toISOString()): AuditReport {
+export function analyzeContractSource(
+  source: string,
+  generatedAt = new Date().toISOString(),
+): AuditReport {
   const lines = source.split("\n");
   const findings = AUDIT_RULES.flatMap((rule) =>
     rule.test(source, lines).map((match) => ({
@@ -352,12 +408,20 @@ export function analyzeContractSource(source: string, generatedAt = new Date().t
   );
 
   const penalty = findings.reduce(
-    (sum, finding) => sum + SEVERITY_PENALTY[finding.severity] * finding.weight * finding.confidence,
+    (sum, finding) =>
+      sum +
+      SEVERITY_PENALTY[finding.severity] * finding.weight * finding.confidence,
     0,
   );
   const signals = calculateSignals(source, findings);
-  const signalBonus = signals.reduce((sum, signal) => sum + signal.contribution, 0);
-  const score = Math.max(0, Math.min(100, Math.round(82 - penalty + signalBonus)));
+  const signalBonus = signals.reduce(
+    (sum, signal) => sum + signal.contribution,
+    0,
+  );
+  const score = Math.max(
+    0,
+    Math.min(100, Math.round(82 - penalty + signalBonus)),
+  );
   const topFindings = findings.slice(0, 5);
 
   return {
@@ -378,20 +442,25 @@ export function analyzeContractSource(source: string, generatedAt = new Date().t
       {
         id: "typed-storage",
         title: "Prefer typed storage keys",
-        impact: /contracttype|enum\s+[A-Za-z0-9_]*Key/.test(source) ? "low" : "high",
-        explanation: "Typed keys reduce collision risk and make state migrations easier to review.",
+        impact: /contracttype|enum\s+[A-Za-z0-9_]*Key/.test(source)
+          ? "low"
+          : "high",
+        explanation:
+          "Typed keys reduce collision risk and make state migrations easier to review.",
       },
       {
         id: "event-indexing",
         title: "Emit events for registry indexing",
         impact: /events\(\)\.publish/.test(source) ? "low" : "medium",
-        explanation: "Event streams improve auditability, search freshness, and downstream analytics.",
+        explanation:
+          "Event streams improve auditability, search freshness, and downstream analytics.",
       },
       {
         id: "bounded-execution",
         title: "Keep execution budget bounded",
         impact: /\b(loop|while|for)\b/.test(source) ? "medium" : "low",
-        explanation: "Bounded loops and input limits reduce failed invocations under Soroban budgets.",
+        explanation:
+          "Bounded loops and input limits reduce failed invocations under Soroban budgets.",
       },
     ],
     signals,

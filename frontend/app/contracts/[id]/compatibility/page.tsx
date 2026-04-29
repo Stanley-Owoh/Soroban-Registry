@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useQuery } from '@tanstack/react-query';
-import { useParams } from 'next/navigation';
-import Link from 'next/link';
-import { api } from '@/lib/api';
-import { CompatibilityMatrixDisplay } from '@/components/CompatibilityMatrix';
-import { ArrowLeft, GitCompare, Loader2 } from 'lucide-react';
-import Navbar from '@/components/Navbar';
+import { useQuery } from "@tanstack/react-query";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import { api } from "@/lib/api";
+import { CompatibilityMatrixDisplay } from "@/components/CompatibilityMatrix";
+import { ArrowLeft, GitCompare, Loader2 } from "lucide-react";
+import Navbar from "@/components/Navbar";
 
 export default function CompatibilityPage() {
   const params = useParams<{ id?: string | string[] }>() ?? {};
@@ -14,13 +14,18 @@ export default function CompatibilityPage() {
   const contractId = Array.isArray(idParam) ? idParam[0] : idParam;
 
   const { data: contract } = useQuery({
-    queryKey: ['contract', contractId],
+    queryKey: ["contract", contractId],
     queryFn: () => api.getContract(contractId!),
     enabled: !!contractId,
   });
 
-  const { data: compatibility, isLoading, isError, error } = useQuery({
-    queryKey: ['compatibility', contractId],
+  const {
+    data: compatibility,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["compatibility", contractId],
     queryFn: () => api.getCompatibility(contractId!),
     enabled: !!contractId,
   });
@@ -31,8 +36,12 @@ export default function CompatibilityPage() {
         <Navbar />
         <div className="mx-auto max-w-4xl px-4 py-10">
           <div className="rounded-2xl border border-border bg-card p-6">
-            <div className="text-sm font-semibold text-foreground">Missing contract id</div>
-            <div className="mt-1 text-sm text-muted-foreground">Open this page from a contract details view.</div>
+            <div className="text-sm font-semibold text-foreground">
+              Missing contract id
+            </div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              Open this page from a contract details view.
+            </div>
             <div className="mt-4">
               <Link
                 href="/contracts"
@@ -64,18 +73,21 @@ export default function CompatibilityPage() {
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
               <GitCompare className="h-5 w-5 text-primary" />
             </span>
-            <h1 className="text-2xl font-bold text-foreground">Contract version compatibility</h1>
+            <h1 className="text-2xl font-bold text-foreground">
+              Contract version compatibility
+            </h1>
           </div>
           {contract && (
             <p className="ml-12 text-muted-foreground">
-              {contract.name}{' '}
+              {contract.name}{" "}
               <span className="rounded bg-accent px-1.5 py-0.5 font-mono text-xs">
                 {contract.contract_id.slice(0, 12)}...
               </span>
             </p>
           )}
           <p className="ml-12 mt-1 text-sm text-muted-foreground">
-            Compare ABI changes across published versions, detect breaking changes, and review the upgrade matrix before shipping an upgrade.
+            Compare ABI changes across published versions, detect breaking
+            changes, and review the upgrade matrix before shipping an upgrade.
           </p>
         </div>
 
@@ -88,11 +100,15 @@ export default function CompatibilityPage() {
           ) : isError ? (
             <div className="py-12 text-center">
               <p className="text-sm text-red-500 dark:text-red-400">
-                {(error as Error)?.message ?? 'Failed to load compatibility matrix.'}
+                {(error as Error)?.message ??
+                  "Failed to load compatibility matrix."}
               </p>
             </div>
           ) : compatibility ? (
-            <CompatibilityMatrixDisplay data={compatibility} contractId={contractId} />
+            <CompatibilityMatrixDisplay
+              data={compatibility}
+              contractId={contractId}
+            />
           ) : null}
         </div>
       </div>

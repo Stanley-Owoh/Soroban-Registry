@@ -15,7 +15,7 @@ export async function promptLine(params: {
     height: 7,
     border: "line",
     label: ` ${params.title} `,
-    style: { border: { fg: "cyan" } }
+    style: { border: { fg: "cyan" } },
   });
 
   blessed.text({
@@ -25,7 +25,7 @@ export async function promptLine(params: {
     right: 2,
     height: 2,
     content: params.hint,
-    style: { fg: "white" }
+    style: { fg: "white" },
   });
 
   const input = blessed.textbox({
@@ -39,8 +39,8 @@ export async function promptLine(params: {
     border: "line",
     style: {
       border: { fg: "gray" },
-      focus: { border: { fg: "yellow" } }
-    }
+      focus: { border: { fg: "yellow" } },
+    },
   });
 
   blessed.text({
@@ -50,7 +50,7 @@ export async function promptLine(params: {
     right: 2,
     height: 1,
     content: "Enter: apply   Esc: cancel",
-    style: { fg: "gray" }
+    style: { fg: "gray" },
   });
 
   params.screen.render();
@@ -70,7 +70,11 @@ export async function promptLine(params: {
   });
 }
 
-export function parseKeyValueFilters(line: string): { network?: string; category?: string; query?: string } {
+export function parseKeyValueFilters(line: string): {
+  network?: string;
+  category?: string;
+  query?: string;
+} {
   const out: { network?: string; category?: string; query?: string } = {};
   for (const token of line.split(/\s+/).filter(Boolean)) {
     const [k, ...rest] = token.split("=");
@@ -82,4 +86,3 @@ export function parseKeyValueFilters(line: string): { network?: string; category
   }
   return out;
 }
-

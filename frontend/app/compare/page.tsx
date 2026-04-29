@@ -1,7 +1,7 @@
-import CompareContracts from './CompareContracts';
-import Navbar from '@/components/Navbar';
+import CompareContracts from "./CompareContracts";
+import Navbar from "@/components/Navbar";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default function ComparePage() {
   return (

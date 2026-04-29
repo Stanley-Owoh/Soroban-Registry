@@ -1,30 +1,42 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormProvider, useForm } from "react-hook-form";
 import type {
   VerificationDraft,
   VerificationDocument,
   VerificationRequest,
   VerificationStatus,
   VerificationStepKey,
-} from '@/types/verification';
-import { MAX_TOTAL_UPLOAD_BYTES, validateFilesToAdd } from '@/utils/fileValidation';
+} from "@/types/verification";
+import {
+  MAX_TOTAL_UPLOAD_BYTES,
+  validateFilesToAdd,
+} from "@/utils/fileValidation";
 import {
   getVerificationStatus,
   simulateStatusProgression,
   subscribeToVerificationStatusChanges,
   submitVerification,
-} from '@/services/mockVerificationService';
+} from "@/services/mockVerificationService";
 
-const DRAFT_STORAGE_KEY = 'sr_verification_draft_v1';
+const DRAFT_STORAGE_KEY = "sr_verification_draft_v1";
 
-const STEP_ORDER: VerificationStepKey[] = ['contractInfo', 'description', 'securityClaims', 'documents', 'review'];
+const STEP_ORDER: VerificationStepKey[] = [
+  "contractInfo",
+  "description",
+  "securityClaims",
+  "documents",
+  "review",
+];
 
-const STEP_FIELDS: Record<Exclude<VerificationStepKey, 'documents' | 'review'>, Array<keyof VerificationDraft>> = {
-  contractInfo: ['contractName', 'contractAddress', 'network'],
-  description: ['purpose', 'useCase'],
-  securityClaims: ['auditStatus', 'knownVulnerabilities', 'riskLevel'],
+const STEP_FIELDS: Record<
+  Exclude<VerificationStepKey, "documents" | "review">,
+  Array<keyof VerificationDraft>
+> = {
+  contractInfo: ["contractName", "contractAddress", "network"],
+  description: ["purpose", "useCase"],
+  securityClaims: ["auditStatus", "knownVulnerabilities", "riskLevel"],
 };
 
 function safeParse<T>(raw: string | null): T | null {
@@ -75,48 +87,58 @@ export type UseVerificationFlowResult = {
 export function useVerificationFlow(): UseVerificationFlowResult {
   const defaultValues = useMemo<VerificationDraft>(() => {
     const base: VerificationDraft = {
-      contractName: '',
-      contractAddress: '',
-      network: 'testnet',
-      purpose: '',
-      useCase: '',
-      auditStatus: 'not_audited',
-      knownVulnerabilities: '',
-      riskLevel: 'medium',
+      contractName: "",
+      contractAddress: "",
+      network: "testnet",
+      purpose: "",
+      useCase: "",
+      auditStatus: "not_audited",
+      knownVulnerabilities: "",
+      riskLevel: "medium",
     };
 
-    if (typeof window === 'undefined') return base;
-    const stored = safeParse<Partial<VerificationDraft>>(window.localStorage.getItem(DRAFT_STORAGE_KEY));
+    if (typeof window === "undefined") return base;
+    const stored = safeParse<Partial<VerificationDraft>>(
+      window.localStorage.getItem(DRAFT_STORAGE_KEY),
+    );
     return { ...base, ...(stored || {}) };
   }, []);
 
   const form = useForm<VerificationDraft>({
     defaultValues,
-    mode: 'onBlur',
+    mode: "onBlur",
     shouldUnregister: false,
   });
 
   const [stepIndex, setStepIndex] = useState(0);
-  const stepKey = STEP_ORDER[stepIndex] ?? 'contractInfo';
+  const stepKey = STEP_ORDER[stepIndex] ?? "contractInfo";
 
   const [files, setFiles] = useState<File[]>([]);
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>(
+    {},
+  );
   const [fileErrors, setFileErrors] = useState<string[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submission, setSubmission] = useState<VerificationRequest | null>(null);
-  const [status, setStatus] = useState<VerificationStatus>('draft');
+  const [submission, setSubmission] = useState<VerificationRequest | null>(
+    null,
+  );
+  const [status, setStatus] = useState<VerificationStatus>("draft");
 
   const uploadIntervalsRef = useRef<Record<string, number>>({});
   const draftSaveTimeoutRef = useRef<number | null>(null);
 
-  const totalUploadBytes = useMemo(() => files.reduce((sum, f) => sum + f.size, 0), [files]);
+  const totalUploadBytes = useMemo(
+    () => files.reduce((sum, f) => sum + f.size, 0),
+    [files],
+  );
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     // Persist draft values between steps and refreshes for a guided wizard UX.
     const subscription = form.watch((values) => {
-      if (draftSaveTimeoutRef.current) window.clearTimeout(draftSaveTimeoutRef.current);
+      if (draftSaveTimeoutRef.current)
+        window.clearTimeout(draftSaveTimeoutRef.current);
       draftSaveTimeoutRef.current = window.setTimeout(() => {
         window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(values));
       }, 250);
@@ -173,7 +195,7 @@ export function useVerificationFlow(): UseVerificationFlowResult {
       });
       for (const f of accepted) startSimulatedUpload(fileKey(f));
     },
-    [files, startSimulatedUpload]
+    [files, startSimulatedUpload],
   );
 
   const removeFile = useCallback((key: string) => {
@@ -190,13 +212,15 @@ export function useVerificationFlow(): UseVerificationFlowResult {
   }, []);
 
   const validateCurrentStep = useCallback(async (): Promise<boolean> => {
-    if (stepKey === 'documents') {
+    if (stepKey === "documents") {
       // Files live outside RHF to keep the form payload JSON-serializable and backend-ready.
       const ok = files.length > 0;
-      setFileErrors(ok ? [] : ['Please upload at least one document to proceed.']);
+      setFileErrors(
+        ok ? [] : ["Please upload at least one document to proceed."],
+      );
       return ok;
     }
-    if (stepKey === 'review') return true;
+    if (stepKey === "review") return true;
 
     const fields = STEP_FIELDS[stepKey as keyof typeof STEP_FIELDS];
     return form.trigger(fields);
@@ -222,7 +246,7 @@ export function useVerificationFlow(): UseVerificationFlowResult {
 
   const submit = useCallback(async (): Promise<VerificationRequest> => {
     const ok = await validateCurrentStep();
-    if (!ok) throw new Error('Please fix validation errors before submitting.');
+    if (!ok) throw new Error("Please fix validation errors before submitting.");
 
     const values = form.getValues();
     setIsSubmitting(true);
@@ -231,15 +255,18 @@ export function useVerificationFlow(): UseVerificationFlowResult {
         id: createDocId(),
         name: f.name,
         sizeBytes: f.size,
-        mimeType: f.type || 'application/octet-stream',
+        mimeType: f.type || "application/octet-stream",
         uploadedAt: new Date().toISOString(),
       }));
 
-      const request = await submitVerification({ submission: { ...values, documents } });
+      const request = await submitVerification({
+        submission: { ...values, documents },
+      });
       setSubmission(request);
       setStatus(request.status);
 
-      if (typeof window !== 'undefined') window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+      if (typeof window !== "undefined")
+        window.localStorage.removeItem(DRAFT_STORAGE_KEY);
 
       return request;
     } finally {
@@ -251,16 +278,18 @@ export function useVerificationFlow(): UseVerificationFlowResult {
     if (!submission?.id) return;
 
     let unsubscribeTimers: (() => void) | null = null;
-    const unsubscribeEvents = subscribeToVerificationStatusChanges(async (evt) => {
-      if (evt.id !== submission.id) return;
-      try {
-        const res = await getVerificationStatus({ id: evt.id });
-        setSubmission(res.request);
-        setStatus(res.request.status);
-      } catch {
-        return;
-      }
-    });
+    const unsubscribeEvents = subscribeToVerificationStatusChanges(
+      async (evt) => {
+        if (evt.id !== submission.id) return;
+        try {
+          const res = await getVerificationStatus({ id: evt.id });
+          setSubmission(res.request);
+          setStatus(res.request.status);
+        } catch {
+          return;
+        }
+      },
+    );
 
     getVerificationStatus({ id: submission.id })
       .then((res) => {

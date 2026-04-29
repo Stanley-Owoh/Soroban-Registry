@@ -1,3 +1,4 @@
+use crate::net::RequestBuilderExt;
 use std::fmt;
 use std::str::FromStr;
 
@@ -80,7 +81,7 @@ impl PatchManager {
         severity: Severity,
         rollout: u8,
     ) -> Result<SecurityPatch> {
-        let client = reqwest::Client::new();
+        let client = crate::net::client();
         let payload = serde_json::json!({
             "target_version": version,
             "severity": severity,
@@ -91,7 +92,7 @@ impl PatchManager {
         let resp = client
             .post(format!("{}/api/patches", api_url))
             .json(&payload)
-            .send()
+            .send_with_retry()
             .await?;
 
         if !resp.status().is_success() {
@@ -105,11 +106,11 @@ impl PatchManager {
         api_url: &str,
         patch_id: &str,
     ) -> Result<(SecurityPatch, Vec<serde_json::Value>)> {
-        let client = reqwest::Client::new();
+        let client = crate::net::client();
 
         let patch_resp = client
             .get(format!("{}/api/patches/{}", api_url, patch_id))
-            .send()
+            .send_with_retry()
             .await?;
 
         if !patch_resp.status().is_success() {
@@ -123,7 +124,7 @@ impl PatchManager {
                 "{}/api/contracts?wasm_hash={}",
                 api_url, patch.target_version
             ))
-            .send()
+            .send_with_retry()
             .await?;
 
         let data: serde_json::Value = contracts_resp.json().await?;
@@ -133,11 +134,11 @@ impl PatchManager {
     }
 
     pub async fn apply(api_url: &str, contract_id: &str, patch_id: &str) -> Result<PatchAudit> {
-        let client = reqwest::Client::new();
+        let client = crate::net::client();
 
         let patch_resp = client
             .get(format!("{}/api/patches/{}", api_url, patch_id))
-            .send()
+            .send_with_retry()
             .await?;
 
         if !patch_resp.status().is_success() {
@@ -148,7 +149,7 @@ impl PatchManager {
 
         let audits_resp = client
             .get(format!("{}/api/patches/{}/audits", api_url, patch_id))
-            .send()
+            .send_with_retry()
             .await?;
 
         let audits_data: serde_json::Value = audits_resp.json().await?;
@@ -159,7 +160,7 @@ impl PatchManager {
                 "{}/api/contracts?wasm_hash={}",
                 api_url, patch.target_version
             ))
-            .send()
+            .send_with_retry()
             .await?;
 
         let contracts_data: serde_json::Value = contracts_resp.json().await?;
@@ -183,7 +184,7 @@ impl PatchManager {
         let resp = client
             .post(format!("{}/api/patches/{}/apply", api_url, patch_id))
             .json(&payload)
-            .send()
+            .send_with_retry()
             .await?;
 
         if !resp.status().is_success() {

@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use crate::net::RequestBuilderExt;
 use anyhow::{Context, Result};
 use chrono::{DateTime, TimeZone, Utc};
 use colored::Colorize;
@@ -141,7 +142,7 @@ async fn check_network(def: &NetworkDef, client: &reqwest::Client) -> NetworkInf
         .post(def.rpc_endpoint)
         .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
         .json(&rpc_req)
-        .send()
+        .send_with_retry()
         .await;
 
     let (sequence, close_time) = match rpc_result {
@@ -189,7 +190,7 @@ async fn fetch_close_time(def: &NetworkDef, client: &reqwest::Client) -> Option<
     let resp = client
         .get(def.horizon_endpoint)
         .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
-        .send()
+        .send_with_retry()
         .await
         .ok()?;
 
@@ -217,7 +218,7 @@ async fn fetch_close_time(def: &NetworkDef, client: &reqwest::Client) -> Option<
 }
 
 pub async fn status(json: bool) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
 
     // Check all three networks concurrently
     let (mainnet, testnet, futurenet) = tokio::join!(

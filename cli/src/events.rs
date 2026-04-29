@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use crate::net::RequestBuilderExt;
 use anyhow::Result;
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
@@ -41,14 +42,14 @@ pub async fn query_events(
     println!("\n{}", "Contract Events".bold().cyan());
     println!("{}", "=".repeat(80).cyan());
 
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
 
     if stats_only {
         let url = format!("{}/api/contracts/{}/events/stats", api_url, contract_id);
 
         let response = client
             .get(&url)
-            .send()
+            .send_with_retry()
             .await
             .map_err(|e| anyhow::anyhow!("Failed to fetch event stats: {}", e))?;
 
@@ -108,7 +109,7 @@ pub async fn query_events(
 
     let response = client
         .get(&url)
-        .send()
+        .send_with_retry()
         .await
         .map_err(|e| anyhow::anyhow!("Failed to fetch events: {}", e))?;
 

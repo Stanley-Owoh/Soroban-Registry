@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use crate::net::RequestBuilderExt;
 use anyhow::{Context, Result};
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
@@ -127,12 +128,13 @@ pub async fn search(
     verified_only: bool,
     networks: Vec<String>,
     category: Option<&str>,
+    sort: Option<&str>,
     limit: usize,
     offset: usize,
     json: bool,
 ) -> Result<()> {
     let t0 = std::time::Instant::now();
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
 
     let mut params: Vec<(&str, String)> = vec![
         ("query", query.to_string()),
@@ -154,10 +156,14 @@ pub async fn search(
         params.push(("category", cat.to_string()));
     }
 
+    if let Some(s) = sort {
+        params.push(("sort", s.to_string()));
+    }
+
     let response = client
         .get(format!("{}/api/contracts", api_url))
         .query(&params)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to search contracts")?;
 
@@ -343,11 +349,11 @@ pub async fn upgrade_analyze(
     }
 
     // Otherwise try to fetch versions from the API (assumes endpoint exists)
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!("{}/api/contract_versions/{}", api_url, old_id);
     let old_res = client
         .get(&url)
-        .send()
+        .send_with_retry()
         .await
         .context("failed to fetch old version")?;
     if old_res.status() == StatusCode::NOT_FOUND {
@@ -361,7 +367,7 @@ pub async fn upgrade_analyze(
     let url2 = format!("{}/api/contract_versions/{}", api_url, new_id);
     let new_res = client
         .get(&url2)
-        .send()
+        .send_with_retry()
         .await
         .context("failed to fetch new version")?;
     if new_res.status() == StatusCode::NOT_FOUND {
@@ -498,7 +504,7 @@ pub async fn publish(
         .await?;
     }
 
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!("{}/api/contracts", api_url);
 
     let mut payload = json!({
@@ -520,7 +526,7 @@ pub async fn publish(
     let response = client
         .post(&url)
         .json(&payload)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to publish contract")?;
 
@@ -983,7 +989,7 @@ pub async fn contract_list(
     category: Option<String>,
     format: &str,
 ) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let mut query = vec![
         ("page_size", limit.to_string()),
         ("page", ((offset / limit) + 1).to_string()),
@@ -1000,7 +1006,7 @@ pub async fn contract_list(
     let response = client
         .get(&url)
         .query(&query)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to list contracts")?;
 
@@ -1084,12 +1090,12 @@ pub async fn contract_list(
 }
 
 pub async fn contract_info(api_url: &str, id: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!("{}/api/contracts/{}", api_url.trim_end_matches('/'), id);
-    
+
     let response = client
         .get(&url)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to fetch contract info")?;
 
@@ -1101,29 +1107,49 @@ pub async fn contract_info(api_url: &str, id: &str) -> Result<()> {
     }
 
     let data: serde_json::Value = response.json().await?;
-    
+
     println!("\n{}", "Contract Details".bold().cyan());
     println!("{}", "=".repeat(80).cyan());
-    
-    println!("{:<20} {}", "Name:".bold(), data["name"].as_str().unwrap_or("Unknown"));
-    println!("{:<20} {}", "ID:".bold(), data["contract_id"].as_str().unwrap_or("Unknown"));
-    println!("{:<20} {}", "Network:".bold(), data["network"].as_str().unwrap_or("Unknown"));
-    println!("{:<20} {}", "Category:".bold(), data["category"].as_str().unwrap_or("None"));
-    
+
+    println!(
+        "{:<20} {}",
+        "Name:".bold(),
+        data["name"].as_str().unwrap_or("Unknown")
+    );
+    println!(
+        "{:<20} {}",
+        "ID:".bold(),
+        data["contract_id"].as_str().unwrap_or("Unknown")
+    );
+    println!(
+        "{:<20} {}",
+        "Network:".bold(),
+        data["network"].as_str().unwrap_or("Unknown")
+    );
+    println!(
+        "{:<20} {}",
+        "Category:".bold(),
+        data["category"].as_str().unwrap_or("None")
+    );
+
     let verified = if data["is_verified"].as_bool().unwrap_or(false) {
         "Yes".green()
     } else {
         "No".red()
     };
     println!("{:<20} {}", "Verified:".bold(), verified);
-    
+
     if let Some(desc) = data["description"].as_str() {
         println!("{:<20} {}", "Description:".bold(), desc);
     }
-    
+
     println!("\n{}", "Resources".bold().yellow());
-    println!("{:<20} {}", "WASM Hash:".bold(), data["wasm_hash"].as_str().unwrap_or("N/A"));
-    
+    println!(
+        "{:<20} {}",
+        "WASM Hash:".bold(),
+        data["wasm_hash"].as_str().unwrap_or("N/A")
+    );
+
     if let Some(abi) = data["abi"].as_object() {
         println!("{:<20} {} methods", "ABI:".bold(), abi.len());
     }
@@ -1176,7 +1202,7 @@ fn extract_migration_id(migration: &serde_json::Value) -> Result<String> {
     Ok(migration_id.to_string())
 }
 pub async fn breaking_changes(api_url: &str, old_id: &str, new_id: &str, json: bool) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!(
         "{}/api/contracts/breaking-changes?old_id={}&new_id={}",
         api_url, old_id, new_id
@@ -1184,7 +1210,7 @@ pub async fn breaking_changes(api_url: &str, old_id: &str, new_id: &str, json: b
 
     let response = client
         .get(&url)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to fetch breaking changes")?;
 
@@ -1274,7 +1300,7 @@ pub async fn migrate(
     }
 
     // 3. Create Migration Record (Pending)
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let create_url = format!("{}/api/migrations", api_url);
 
     let payload = json!({
@@ -1286,7 +1312,7 @@ pub async fn migrate(
     let response = client
         .post(&create_url)
         .json(&payload)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to contact registry API")?;
 
@@ -1356,7 +1382,7 @@ pub async fn migrate(
     let update_res = client
         .put(&update_url)
         .json(&update_payload)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to update migration status")?;
 
@@ -1374,24 +1400,37 @@ pub async fn migrate(
     Ok(())
 }
 
-pub async fn export(_api_url: &str, id: &str, output: &str, contract_dir: &str) -> Result<()> {
-    let source = std::path::Path::new(contract_dir);
-    anyhow::ensure!(
-        source.is_dir(),
-        "contract directory does not exist: {}",
-        contract_dir
-    );
-    crate::export::create_archive(
-        source,
-        std::path::Path::new(output),
+pub async fn export(
+    api_url: &str,
+    id: Option<&str>,
+    output: Option<&str>,
+    contract_dir: &str,
+    format: Option<&str>,
+    filters: Vec<String>,
+    page_size: usize,
+) -> Result<()> {
+    let resolved_format = crate::export::RegistryExportFormat::resolve(format, id, output)?;
+    let summary = crate::export::export_registry_data(crate::export::RegistryExportOptions {
+        api_url,
         id,
-        "contract",
-        "testnet",
-    )?;
+        output,
+        contract_dir,
+        format: resolved_format,
+        filters,
+        page_size,
+    })
+    .await?;
+
     println!("{}", "✓ Export complete!".green().bold());
-    println!("  {}: {}", "Output".bold(), output);
-    println!("  {}: {}", "Contract".bold(), id.bright_black());
-    println!("  {}: contract\n", "Name".bold());
+    println!(
+        "  {}: {}",
+        "Format".bold(),
+        format!("{:?}", summary.format).to_lowercase()
+    );
+    println!("  {}: {}", "Items".bold(), summary.items_exported);
+    println!("  {}: {}", "Output".bold(), summary.output_path);
+    println!("  {}: {}", "SHA-256".bold(), summary.sha256.bright_black());
+    println!("  {}: {}\n", "Checksum".bold(), summary.checksum_path);
     Ok(())
 }
 
@@ -1502,11 +1541,11 @@ pub async fn trust_score(api_url: &str, contract_id: &str, network: Network) -> 
     let url = format!("{}/api/contracts/{}/trust-score", api_url, contract_id);
     log::debug!("GET {}", url);
 
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let resp = client
         .get(&url)
         .query(&[("network", network.to_string())])
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to reach registry API")?;
 
@@ -1622,12 +1661,12 @@ pub async fn patch_apply(api_url: &str, contract_id: &str, patch_id: &str) -> Re
 }
 
 pub async fn deps_list(api_url: &str, contract_id: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!("{}/api/contracts/{}/dependencies", api_url, contract_id);
 
     let response = client
         .get(&url)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to fetch contract dependencies")?;
 
@@ -1897,7 +1936,7 @@ pub fn incident_trigger(contract_id: &str, severity_str: &str) -> Result<()> {
 }
 
 pub async fn config_get(api_url: &str, contract_id: &str, environment: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!(
         "{}/api/contracts/{}/config?environment={}",
         api_url, contract_id, environment
@@ -1905,7 +1944,7 @@ pub async fn config_get(api_url: &str, contract_id: &str, environment: &str) -> 
 
     let response = client
         .get(&url)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to fetch configuration")?;
 
@@ -1957,7 +1996,7 @@ pub async fn config_set(
     secrets_data: Option<&str>,
     created_by: &str,
 ) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!("{}/api/contracts/{}/config", api_url, contract_id);
 
     let mut payload = json!({
@@ -1977,7 +2016,7 @@ pub async fn config_set(
     let response = client
         .post(&url)
         .json(&payload)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to set configuration")?;
 
@@ -2006,7 +2045,7 @@ pub async fn config_set(
 }
 
 pub async fn config_history(api_url: &str, contract_id: &str, environment: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!(
         "{}/api/contracts/{}/config/history?environment={}",
         api_url, contract_id, environment
@@ -2014,7 +2053,7 @@ pub async fn config_history(api_url: &str, contract_id: &str, environment: &str)
 
     let response = client
         .get(&url)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to fetch configuration history")?;
 
@@ -2056,7 +2095,7 @@ pub async fn config_rollback(
     version: i32,
     created_by: &str,
 ) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!(
         "{}/api/contracts/{}/config/rollback?environment={}",
         api_url, contract_id, environment
@@ -2077,7 +2116,7 @@ pub async fn config_rollback(
     let response = client
         .post(&url)
         .json(&payload)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to rollback configuration")?;
 
@@ -2194,8 +2233,12 @@ fn sanitize_for_filename(input: &str) -> String {
 fn state_file_path(contract_id: &str, network: Network) -> Result<PathBuf> {
     let root = state_root_dir()?;
     let network_dir = root.join(network.to_string());
-    fs::create_dir_all(&network_dir)
-        .with_context(|| format!("Failed to create state directory: {}", network_dir.display()))?;
+    fs::create_dir_all(&network_dir).with_context(|| {
+        format!(
+            "Failed to create state directory: {}",
+            network_dir.display()
+        )
+    })?;
     let file_name = format!("{}.json", sanitize_for_filename(contract_id));
     Ok(network_dir.join(file_name))
 }
@@ -2224,7 +2267,8 @@ fn load_local_state(contract_id: &str, network: Network) -> Result<LocalContract
 fn save_local_state(store: &LocalContractStateStore, network: Network) -> Result<()> {
     let path = state_file_path(&store.contract_id, network)?;
     let data = serde_json::to_string_pretty(store).context("Failed to serialize state")?;
-    fs::write(&path, data).with_context(|| format!("Failed to write state file: {}", path.display()))
+    fs::write(&path, data)
+        .with_context(|| format!("Failed to write state file: {}", path.display()))
 }
 
 fn parse_state_value(raw: &str) -> serde_json::Value {
@@ -2248,7 +2292,7 @@ async fn try_remote_state_get(
         .map_err(|_| anyhow::anyhow!("Invalid API URL"))?
         .extend(["api", "contracts", contract_id, "state", key]);
 
-    let response = match reqwest::Client::new().get(url).send().await {
+    let response = match crate::net::client().get(url).send_with_retry().await {
         Ok(resp) => resp,
         Err(_) => return Ok(None),
     };
@@ -2279,10 +2323,10 @@ async fn try_remote_state_set(
         .map_err(|_| anyhow::anyhow!("Invalid API URL"))?
         .extend(["api", "contracts", contract_id, "state", key]);
 
-    let response = match reqwest::Client::new()
+    let response = match crate::net::client()
         .put(url)
         .json(&json!({ "value": value }))
-        .send()
+        .send_with_retry()
         .await
     {
         Ok(resp) => resp,
@@ -2333,7 +2377,11 @@ pub async fn state_get(
     println!("\n{}", "Contract State Value".bold().cyan());
     println!("{}", "=".repeat(80).cyan());
     println!("{}: {}", "Contract".bold(), contract_id);
-    println!("{}: {}", "Network".bold(), network.to_string().bright_blue());
+    println!(
+        "{}: {}",
+        "Network".bold(),
+        network.to_string().bright_blue()
+    );
     println!("{}: {}", "Key".bold(), key.bright_magenta());
     println!("{}: {}", "Source".bold(), source);
     println!(
@@ -2395,7 +2443,11 @@ pub async fn state_set(
     println!("\n{}", "State Updated".bold().green());
     println!("{}", "=".repeat(80).cyan());
     println!("{}: {}", "Contract".bold(), contract_id);
-    println!("{}: {}", "Network".bold(), network.to_string().bright_blue());
+    println!(
+        "{}: {}",
+        "Network".bold(),
+        network.to_string().bright_blue()
+    );
     println!("{}: {}", "Key".bold(), key.bright_magenta());
     println!("{}: {}", "Remote Applied".bold(), remote_applied);
     println!(
@@ -2428,7 +2480,11 @@ pub fn state_dump(contract_id: &str, network: Network, json_output: bool) -> Res
     println!("\n{}", "Contract State Dump".bold().cyan());
     println!("{}", "=".repeat(80).cyan());
     println!("{}: {}", "Contract".bold(), contract_id);
-    println!("{}: {}", "Network".bold(), network.to_string().bright_blue());
+    println!(
+        "{}: {}",
+        "Network".bold(),
+        network.to_string().bright_blue()
+    );
     println!("{}: {}", "Entries".bold(), store.values.len());
     println!("{}: {}", "Snapshots".bold(), store.snapshots.len());
     println!("{}: {}", "History Entries".bold(), store.history.len());
@@ -2493,7 +2549,11 @@ pub fn state_snapshot_create(
     println!("\n{}", "State Snapshot Created".bold().green());
     println!("{}", "=".repeat(80).cyan());
     println!("{}: {}", "Contract".bold(), contract_id);
-    println!("{}: {}", "Network".bold(), network.to_string().bright_blue());
+    println!(
+        "{}: {}",
+        "Network".bold(),
+        network.to_string().bright_blue()
+    );
     println!("{}: {}", "Snapshot ID".bold(), snapshot.id.bright_magenta());
     println!(
         "{}: {}",
@@ -2686,7 +2746,7 @@ pub async fn scan_deps(
 ) -> Result<()> {
     println!("\n{}", "Scanning Dependencies...".bold().cyan());
 
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!("{}/api/contracts/{}/scan", api_url, contract_id);
 
     // Parse dependencies
@@ -2711,7 +2771,7 @@ pub async fn scan_deps(
     let response = client
         .post(&url)
         .json(&payload)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to run dependency scan")?;
 
@@ -2956,7 +3016,7 @@ pub async fn validate_call(
     params: &[String],
     strict: bool,
 ) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!("{}/api/contracts/{}/validate-call", api_url, contract_id);
 
     let body = json!({
@@ -2970,7 +3030,7 @@ pub async fn validate_call(
     let response = client
         .post(&url)
         .json(&body)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to validate contract call")?;
 
@@ -3078,7 +3138,7 @@ pub async fn generate_bindings(
     language: &str,
     output: Option<&str>,
 ) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!(
         "{}/api/contracts/{}/bindings?language={}",
         api_url, contract_id, language
@@ -3088,7 +3148,7 @@ pub async fn generate_bindings(
 
     let response = client
         .get(&url)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to generate bindings")?;
 
@@ -3120,14 +3180,14 @@ pub async fn generate_bindings(
 
 /// List functions available on a contract
 pub async fn list_functions(api_url: &str, contract_id: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!("{}/api/contracts/{}/functions", api_url, contract_id);
 
     log::debug!("GET {}", url);
 
     let response = client
         .get(&url)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to list contract functions")?;
 
@@ -3213,7 +3273,7 @@ pub async fn info(
     highlight_method: Option<&str>,
     network: crate::config::Network,
 ) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let base_url = api_url.trim_end_matches('/');
 
     if format == "text" {
@@ -3225,7 +3285,7 @@ pub async fn info(
     let metadata_res = client
         .get(&metadata_url)
         .query(&[("network", network.to_string())])
-        .send()
+        .send_with_retry()
         .await?;
 
     if !metadata_res.status().is_success() {
@@ -3244,7 +3304,7 @@ pub async fn info(
 
     // 2. Fetch ABI
     let abi_url = format!("{}/api/contracts/{}/abi", base_url, contract_uuid);
-    let abi_res = client.get(&abi_url).send().await;
+    let abi_res = client.get(&abi_url).send_with_retry().await;
     let abi: Option<serde_json::Value> = if let Ok(res) = abi_res {
         if res.status().is_success() {
             res.json::<serde_json::Value>()
@@ -3260,7 +3320,7 @@ pub async fn info(
 
     // 3. Fetch Deployments
     let depl_url = format!("{}/api/contracts/{}/deployments", base_url, contract_uuid);
-    let depl_res = client.get(&depl_url).send().await;
+    let depl_res = client.get(&depl_url).send_with_retry().await;
     let deployments: Vec<serde_json::Value> = if let Ok(res) = depl_res {
         if res.status().is_success() {
             res.json().await.unwrap_or_default()
@@ -3273,7 +3333,7 @@ pub async fn info(
 
     // 4. Fetch Dependencies
     let deps_url = format!("{}/api/contracts/{}/dependencies", base_url, contract_uuid);
-    let deps_res = client.get(&deps_url).send().await;
+    let deps_res = client.get(&deps_url).send_with_retry().await;
     let dependencies: Vec<serde_json::Value> = if let Ok(res) = deps_res {
         if res.status().is_success() {
             res.json::<serde_json::Value>()
@@ -3291,7 +3351,7 @@ pub async fn info(
 
     // 5. Fetch Dependents (Related Contracts)
     let relate_url = format!("{}/api/contracts/{}/dependents", base_url, contract_uuid);
-    let relate_res = client.get(&relate_url).send().await;
+    let relate_res = client.get(&relate_url).send_with_retry().await;
     let dependents: Vec<serde_json::Value> = if let Ok(res) = relate_res {
         if res.status().is_success() {
             res.json::<serde_json::Value>()
@@ -3309,7 +3369,7 @@ pub async fn info(
 
     // 6. Fetch Versions (for verification status)
     let versions_url = format!("{}/api/contracts/{}/versions", base_url, contract_uuid);
-    let versions_res = client.get(&versions_url).send().await;
+    let versions_res = client.get(&versions_url).send_with_retry().await;
     let versions: Vec<serde_json::Value> = if let Ok(res) = versions_res {
         if res.status().is_success() {
             res.json().await.unwrap_or_default()
@@ -3644,14 +3704,14 @@ pub fn sla_status(id: &str) -> Result<()> {
 }
 
 pub async fn snapshot_create(api_url: &str, contract_id: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!("{}/api/contracts/{}/snapshots", api_url, contract_id);
 
     println!("\n{}", "Creating contract snapshot...".bold().cyan());
 
     let response = client
         .post(&url)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to create snapshot")?;
 
@@ -3665,21 +3725,33 @@ pub async fn snapshot_create(api_url: &str, contract_id: &str) -> Result<()> {
     let snapshot: serde_json::Value = response.json().await?;
 
     println!("{}", "✓ Snapshot created successfully!".green().bold());
-    println!("  {}: {}", "ID".bold(), snapshot["id"].as_str().unwrap_or(""));
-    println!("  {}: {}", "Version".bold(), snapshot["version_number"].as_i64().unwrap_or(0));
-    println!("  {}: {}", "Created At".bold(), snapshot["created_at"].as_str().unwrap_or(""));
+    println!(
+        "  {}: {}",
+        "ID".bold(),
+        snapshot["id"].as_str().unwrap_or("")
+    );
+    println!(
+        "  {}: {}",
+        "Version".bold(),
+        snapshot["version_number"].as_i64().unwrap_or(0)
+    );
+    println!(
+        "  {}: {}",
+        "Created At".bold(),
+        snapshot["created_at"].as_str().unwrap_or("")
+    );
     println!();
 
     Ok(())
 }
 
 pub async fn snapshot_list(api_url: &str, contract_id: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!("{}/api/contracts/{}/snapshots", api_url, contract_id);
 
     let response = client
         .get(&url)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to list snapshots")?;
 
@@ -3714,12 +3786,15 @@ pub async fn snapshot_list(api_url: &str, contract_id: &str) -> Result<()> {
 }
 
 pub async fn snapshot_get(api_url: &str, contract_id: &str, timestamp: &str) -> Result<()> {
-    let client = reqwest::Client::new();
-    let url = format!("{}/api/contracts/{}/snapshots?timestamp={}", api_url, contract_id, timestamp);
+    let client = crate::net::client();
+    let url = format!(
+        "{}/api/contracts/{}/snapshots?timestamp={}",
+        api_url, contract_id, timestamp
+    );
 
     let response = client
         .get(&url)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to fetch snapshot")?;
 
@@ -3740,12 +3815,15 @@ pub async fn snapshot_get(api_url: &str, contract_id: &str, timestamp: &str) -> 
 }
 
 pub async fn snapshot_diff(api_url: &str, contract_id: &str, v1: i32, v2: i32) -> Result<()> {
-    let client = reqwest::Client::new();
-    let url = format!("{}/api/contracts/{}/versions/{}/diff/{}", api_url, contract_id, v1, v2);
+    let client = crate::net::client();
+    let url = format!(
+        "{}/api/contracts/{}/versions/{}/diff/{}",
+        api_url, contract_id, v1, v2
+    );
 
     let response = client
         .get(&url)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to fetch diff")?;
 
@@ -3758,7 +3836,10 @@ pub async fn snapshot_diff(api_url: &str, contract_id: &str, v1: i32, v2: i32) -
 
     let diff: shared::models::VersionDiff = response.json().await?;
 
-    println!("\n{}", format!("Diff between v{} and v{}:", v1, v2).bold().cyan());
+    println!(
+        "\n{}",
+        format!("Diff between v{} and v{}:", v1, v2).bold().cyan()
+    );
     println!("{}", "=".repeat(80).cyan());
 
     if diff.added.is_empty() && diff.removed.is_empty() && diff.modified.is_empty() {
@@ -3767,16 +3848,182 @@ pub async fn snapshot_diff(api_url: &str, contract_id: &str, v1: i32, v2: i32) -
     }
 
     for add in diff.added {
-        println!("  {} {}: {}", "+".green().bold(), add.field.bold(), add.to.to_string().green());
+        println!(
+            "  {} {}: {}",
+            "+".green().bold(),
+            add.field.bold(),
+            add.to.to_string().green()
+        );
     }
     for rm in diff.removed {
-        println!("  {} {}: {}", "-".red().bold(), rm.field.bold(), rm.from.to_string().red());
+        println!(
+            "  {} {}: {}",
+            "-".red().bold(),
+            rm.field.bold(),
+            rm.from.to_string().red()
+        );
     }
     for modif in diff.modified {
-        println!("  {} {}: {} -> {}", "~".yellow().bold(), modif.field.bold(), modif.from.to_string().red(), modif.to.to_string().green());
+        println!(
+            "  {} {}: {} -> {}",
+            "~".yellow().bold(),
+            modif.field.bold(),
+            modif.from.to_string().red(),
+            modif.to.to_string().green()
+        );
     }
 
     println!();
 
     Ok(())
+}
+
+/// Get comprehensive registry statistics
+/// Command: soroban-registry stats [options]
+pub async fn stats(
+    api_url: &str,
+    timeframe: &str,
+    format: &str,
+    output: Option<&str>,
+) -> Result<()> {
+    let client = crate::net::client();
+    let url = format!("{}/api/stats?timeframe={}", api_url, timeframe);
+
+    let response = client
+        .get(&url)
+        .send_with_retry()
+        .await
+        .context("Failed to fetch registry statistics")?;
+
+    if !response.status().is_success() {
+        anyhow::bail!(
+            "Failed to fetch stats: {}",
+            response.text().await.unwrap_or_default()
+        );
+    }
+
+    let stats: serde_json::Value = response.json().await?;
+
+    // Format output
+    let output_str = match format {
+        "json" => serde_json::to_string_pretty(&stats)?,
+        "yaml" => serde_yaml::to_string(&stats)?,
+        "table" => format_stats_table(&stats),
+        _ => anyhow::bail!("Invalid format: {}. Use table, json, or yaml", format),
+    };
+
+    if let Some(path) = output {
+        fs::write(path, &output_str)?;
+        println!("{} Stats written to {}", "✓".green(), path);
+    } else {
+        println!("{}", output_str);
+    }
+
+    Ok(())
+}
+
+fn format_stats_table(stats: &serde_json::Value) -> String {
+    let mut out = String::new();
+
+    // Header
+    out.push_str(&format!(
+        "\n{}",
+        "Soroban Registry Statistics".bold().cyan()
+    ));
+    out.push_str(&format!("\n{}\n", "=".repeat(60).cyan()));
+
+    // Basic counts
+    if let Some(total) = stats["total_contracts"].as_i64() {
+        out.push_str(&format!(
+            "{}\n",
+            format_kv("Total Contracts", &total.to_string())
+        ));
+    }
+    if let Some(publishers) = stats["total_publishers"].as_i64() {
+        out.push_str(&format!(
+            "{}\n",
+            format_kv("Total Publishers", &publishers.to_string())
+        ));
+    }
+    if let Some(verified) = stats["verified_contracts"].as_i64() {
+        out.push_str(&format!(
+            "{}\n",
+            format_kv("Verified Contracts", &verified.to_string())
+        ));
+    }
+    if let Some(pct) = stats["verification_percentage"].as_f64() {
+        out.push_str(&format!(
+            "{}\n",
+            format_kv("Verification Rate", &format!("{:.1}%", pct))
+        ));
+    }
+    out.push_str("\n");
+
+    // Growth
+    out.push_str(&format!("{}", "Growth".bold()));
+    out.push_str(&format!("\n{}\n", "─".repeat(40).bright_black()));
+    if let Some(c7) = stats["contracts_last_7d"].as_i64() {
+        out.push_str(&format!(
+            "{}\n",
+            format_kv("  Last 7 days", &c7.to_string())
+        ));
+    }
+    if let Some(c30) = stats["contracts_last_30d"].as_i64() {
+        out.push_str(&format!(
+            "{}\n",
+            format_kv("  Last 30 days", &c30.to_string())
+        ));
+    }
+    if let Some(p30) = stats["new_publishers_last_30d"].as_i64() {
+        out.push_str(&format!(
+            "{}\n",
+            format_kv("  New publishers (30d)", &p30.to_string())
+        ));
+    }
+    out.push_str("\n");
+
+    // Top contracts
+    if let Some(top) = stats["top_contracts"].as_array() {
+        out.push_str(&format!("{}", "Top 10 Contracts by Interactions".bold()));
+        out.push_str(&format!("\n{}\n", "─".repeat(40).bright_black()));
+        for (i, contract) in top.iter().enumerate().take(10) {
+            let name = contract["name"].as_str().unwrap_or("N/A");
+            let count = contract["interaction_count"].as_i64().unwrap_or(0);
+            out.push_str(&format!(
+                "  {}. {} ({})\n",
+                (i + 1).to_string().bright_blue(),
+                name.bold(),
+                count.to_string().green()
+            ));
+        }
+        out.push_str("\n");
+    }
+
+    // Network breakdown
+    if let Some(networks) = stats["network_stats"].as_array() {
+        out.push_str(&format!("{}", "By Network".bold()));
+        out.push_str(&format!("\n{}\n", "─".repeat(40).bright_black()));
+        for net in networks {
+            let n = match net["network"].as_str() {
+                Some("mainnet") => "Mainnet".cyan(),
+                Some("testnet") => "Testnet".yellow(),
+                Some("futurenet") => "Futurenet".magenta(),
+                _ => net["network"].as_str().unwrap_or("").into(),
+            };
+            let count = net["contract_count"].as_i64().unwrap_or(0);
+            out.push_str(&format!("  {}: {} contracts\n", n, count));
+        }
+        out.push_str("\n");
+    }
+
+    // Generated at
+    if let Some(gen) = stats["generated_at"].as_str() {
+        out.push_str(&format!("Generated at: {}\n", gen.bright_black()));
+    }
+
+    out
+}
+
+fn format_kv(key: &str, value: &str) -> String {
+    format!("  {} {}", key.bold().cyan(), value.bright_white())
 }

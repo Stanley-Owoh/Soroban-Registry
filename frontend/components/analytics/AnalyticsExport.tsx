@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Download, ChevronDown, FileText, FileJson } from 'lucide-react';
-import { AnalyticsResponse, TimePeriod } from '@/types/analytics';
+import React, { useState } from "react";
+import { Download, ChevronDown, FileText, FileJson } from "lucide-react";
+import { AnalyticsResponse, TimePeriod } from "@/types/analytics";
 
 interface AnalyticsExportProps {
   data: AnalyticsResponse;
@@ -11,7 +11,7 @@ interface AnalyticsExportProps {
 
 function csvEscape(value: string | number | null | undefined): string {
   if (value === null || value === undefined) {
-    return '';
+    return "";
   }
   const str = String(value);
   if (/[",\r\n]/.test(str)) {
@@ -24,57 +24,57 @@ function csvEscape(value: string | number | null | undefined): string {
 function toCSV(data: AnalyticsResponse): string {
   const sections: string[] = [];
 
-  sections.push('=== Search Trends ===');
-  sections.push('Date,Searches,Unique Terms');
+  sections.push("=== Search Trends ===");
+  sections.push("Date,Searches,Unique Terms");
   data.searchTrends.forEach((row) => {
     sections.push(
-      `${csvEscape(row.date)},${csvEscape(row.searches)},${csvEscape(row.uniqueTerms)}`
+      `${csvEscape(row.date)},${csvEscape(row.searches)},${csvEscape(row.uniqueTerms)}`,
     );
   });
 
-  sections.push('');
-  sections.push('=== Top Search Terms ===');
-  sections.push('Term,Count,Growth(%)');
+  sections.push("");
+  sections.push("=== Top Search Terms ===");
+  sections.push("Term,Count,Growth(%)");
   data.topSearchTerms.forEach((row) => {
     sections.push(
-      `${csvEscape(row.term)},${csvEscape(row.count)},${csvEscape(row.growth)}`
+      `${csvEscape(row.term)},${csvEscape(row.count)},${csvEscape(row.growth)}`,
     );
   });
 
-  sections.push('');
-  sections.push('=== Engagement Funnel ===');
-  sections.push('Stage,Users,Percentage(%)');
+  sections.push("");
+  sections.push("=== Engagement Funnel ===");
+  sections.push("Stage,Users,Percentage(%)");
   data.engagementFunnel.forEach((row) => {
     sections.push(
-      `${csvEscape(row.stage)},${csvEscape(row.users)},${csvEscape(row.percentage)}`
+      `${csvEscape(row.stage)},${csvEscape(row.users)},${csvEscape(row.percentage)}`,
     );
   });
 
-  sections.push('');
-  sections.push('=== Category Popularity ===');
-  sections.push('Category,Searches,Views,Deployments');
+  sections.push("");
+  sections.push("=== Category Popularity ===");
+  sections.push("Category,Searches,Views,Deployments");
   data.categoryPopularity.forEach((row) => {
     sections.push(
-      `${csvEscape(row.category)},${csvEscape(row.searches)},${csvEscape(row.views)},${csvEscape(row.deployments)}`
+      `${csvEscape(row.category)},${csvEscape(row.searches)},${csvEscape(row.views)},${csvEscape(row.deployments)}`,
     );
   });
 
-  sections.push('');
-  sections.push('=== Network Distribution ===');
-  sections.push('Network,Region,Count,Percentage(%)');
+  sections.push("");
+  sections.push("=== Network Distribution ===");
+  sections.push("Network,Region,Count,Percentage(%)");
   data.networkDistribution.forEach((row) => {
     sections.push(
-      `${csvEscape(row.network)},${csvEscape(row.region)},${csvEscape(row.count)},${csvEscape(row.percentage)}`
+      `${csvEscape(row.network)},${csvEscape(row.region)},${csvEscape(row.count)},${csvEscape(row.percentage)}`,
     );
   });
 
-  return sections.join('\n');
+  return sections.join("\n");
 }
 
 function downloadFile(content: string, filename: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
@@ -85,14 +85,14 @@ const AnalyticsExport: React.FC<AnalyticsExportProps> = ({ data, period }) => {
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  const timestamp = new Date().toISOString().split('T')[0];
+  const timestamp = new Date().toISOString().split("T")[0];
   const baseFilename = `soroban-analytics-${period}-${timestamp}`;
 
   const exportJSON = async () => {
     setExporting(true);
     try {
       const content = JSON.stringify(data, null, 2);
-      downloadFile(content, `${baseFilename}.json`, 'application/json');
+      downloadFile(content, `${baseFilename}.json`, "application/json");
     } finally {
       setExporting(false);
       setOpen(false);
@@ -103,7 +103,7 @@ const AnalyticsExport: React.FC<AnalyticsExportProps> = ({ data, period }) => {
     setExporting(true);
     try {
       const content = toCSV(data);
-      downloadFile(content, `${baseFilename}.csv`, 'text/csv');
+      downloadFile(content, `${baseFilename}.csv`, "text/csv");
     } finally {
       setExporting(false);
       setOpen(false);
@@ -119,7 +119,9 @@ const AnalyticsExport: React.FC<AnalyticsExportProps> = ({ data, period }) => {
       >
         <Download className="w-4 h-4" />
         Export
-        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open && (

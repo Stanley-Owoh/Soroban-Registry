@@ -1,4 +1,4 @@
-export type TimePeriod = '7d' | '30d' | '90d' | 'all-time';
+export type TimePeriod = "7d" | "30d" | "90d" | "all-time";
 
 export interface SearchTrendPoint {
   date: string;
@@ -15,7 +15,7 @@ export interface TopSearchTerm {
 export interface SankeyNode {
   id: string;
   name: string;
-  category: 'entry' | 'search' | 'filter' | 'contract' | 'action';
+  category: "entry" | "search" | "filter" | "contract" | "action";
 }
 
 export interface SankeyLink {

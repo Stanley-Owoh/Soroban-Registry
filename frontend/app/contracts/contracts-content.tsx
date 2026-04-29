@@ -1,5 +1,6 @@
-'use client';
+"use client";
 
+<<<<<<< HEAD
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, ContractSearchParams, Contract, SemanticContractSearchResponse } from '@/lib/api';
@@ -17,35 +18,72 @@ import { useAnalytics } from '@/hooks/useAnalytics';
 import QueryBuilder from '@/components/contracts/QueryBuilder';
 import FavoriteSearches from '@/components/contracts/FavoriteSearches';
 import { SearchBar } from '@/components/contracts/SearchBar';
+=======
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type {
+  ContractSearchParams,
+  Contract,
+  SemanticContractSearchResponse,
+} from "@/types";
+import { api } from "@/lib/api";
+import ContractCard from "@/components/ContractCard";
+import ContractCardSkeleton from "@/components/ContractCardSkeleton";
+import { ActiveFilters } from "@/components/contracts/ActiveFilters";
+import { FilterPanel } from "@/components/contracts/FilterPanel";
+import { ResultsCount } from "@/components/contracts/ResultsCount";
+import { SortDropdown } from "@/components/contracts/SortDropdown";
+import TagAutocomplete from "@/components/tags/TagAutocomplete";
+import {
+  Filter,
+  Package,
+  SlidersHorizontal,
+  X,
+  Sparkles,
+  CheckCircle,
+  Users,
+} from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useAnalytics } from "@/hooks/useAnalytics";
+import QueryBuilder from "@/components/contracts/QueryBuilder";
+import FavoriteSearches from "@/components/contracts/FavoriteSearches";
+import { useFavorites } from "@/hooks/useFavorites";
+import {
+  DEFAULT_SORT_PREFERENCE,
+  persistSortPreference,
+  resolveInitialSortPreference,
+  type SortBy,
+} from "./sort-utils";
+>>>>>>> main
 import {
   combineAdvancedQueryWithFilters,
   parseAdvancedContractQuery,
-} from '@/utils/advancedSearchSyntax';
+} from "@/utils/advancedSearchSyntax";
 
 const DEFAULT_PAGE_SIZE = 12;
 const CATEGORY_OPTIONS_NAMES = [
-  'DeFi',
-  'NFT',
-  'Governance',
-  'Infrastructure',
-  'Payment',
-  'Identity',
-  'Gaming',
-  'Social',
+  "DeFi",
+  "NFT",
+  "Governance",
+  "Infrastructure",
+  "Payment",
+  "Identity",
+  "Gaming",
+  "Social",
 ];
 const LANGUAGE_OPTIONS = [
-  'Rust',
-  'TypeScript',
-  'JavaScript',
-  'AssemblyScript',
-  'Move',
+  "Rust",
+  "TypeScript",
+  "JavaScript",
+  "AssemblyScript",
+  "Move",
 ];
 
-const ALL_NETWORK_FILTERS = ['mainnet', 'testnet', 'futurenet'] as const;
+const ALL_NETWORK_FILTERS = ["mainnet", "testnet", "futurenet"] as const;
 
 function parseCsvOrMulti(values: string[]) {
   return values
-    .flatMap((value) => value.split(','))
+    .flatMap((value) => value.split(","))
     .map((value) => value.trim())
     .filter(Boolean);
 }
@@ -63,7 +101,7 @@ function toggleOne<T>(values: T[], value: T) {
 function getPaginationRange(
   currentPage: number,
   totalPages: number,
-): Array<number | 'ellipsis'> {
+): Array<number | "ellipsis"> {
   if (totalPages <= 0) return [];
   if (totalPages <= 5) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
@@ -73,8 +111,16 @@ function getPaginationRange(
   const isNearStart = safeCurrentPage <= 2;
   const isNearEnd = safeCurrentPage >= totalPages - 1;
 
-  const windowStart = isNearStart ? 2 : isNearEnd ? totalPages - 2 : safeCurrentPage - 1;
-  const windowEnd = isNearStart ? 3 : isNearEnd ? totalPages - 1 : safeCurrentPage + 1;
+  const windowStart = isNearStart
+    ? 2
+    : isNearEnd
+      ? totalPages - 2
+      : safeCurrentPage - 1;
+  const windowEnd = isNearStart
+    ? 3
+    : isNearEnd
+      ? totalPages - 1
+      : safeCurrentPage + 1;
 
   const basePages = [
     1,
@@ -85,14 +131,16 @@ function getPaginationRange(
     totalPages,
   ].filter((page) => page >= 1 && page <= totalPages);
 
-  const uniqueSortedPages = Array.from(new Set(basePages)).sort((a, b) => a - b);
-  const range: Array<number | 'ellipsis'> = [];
+  const uniqueSortedPages = Array.from(new Set(basePages)).sort(
+    (a, b) => a - b,
+  );
+  const range: Array<number | "ellipsis"> = [];
 
   for (let index = 0; index < uniqueSortedPages.length; index += 1) {
     const page = uniqueSortedPages[index];
     const previous = range[range.length - 1];
 
-    if (typeof previous !== 'number') {
+    if (typeof previous !== "number") {
       range.push(page);
       continue;
     }
@@ -103,7 +151,7 @@ function getPaginationRange(
       continue;
     }
     if (diff > 2) {
-      range.push('ellipsis', page);
+      range.push("ellipsis", page);
       continue;
     }
 
@@ -125,10 +173,11 @@ export type ContractsUiFilters = {
   languages: string[];
   tags: string[];
   author: string;
-  networks: NonNullable<ContractSearchParams['network']>[];
+  networks: NonNullable<ContractSearchParams["network"]>[];
   verified_only: boolean;
+  favorites_only: boolean;
   sort_by: SortBy;
-  sort_order: 'asc' | 'desc';
+  sort_order: "asc" | "desc";
   page: number;
   page_size: number;
 };
@@ -143,33 +192,41 @@ const EMPTY_CONTRACTS_RESPONSE: ContractsResponse = {
   total_pages: 1,
 };
 
-const DEFAULT_SORT_BY: SortBy = 'created_at';
-const DEFAULT_SORT_ORDER: ContractsUiFilters['sort_order'] = 'desc';
+const DEFAULT_SORT_BY: SortBy = DEFAULT_SORT_PREFERENCE.sort_by;
+const DEFAULT_SORT_ORDER: ContractsUiFilters["sort_order"] =
+  DEFAULT_SORT_PREFERENCE.sort_order;
 
-export function getInitialFilters(searchParams: URLSearchParams): ContractsUiFilters {
-  const query = searchParams.get('query') || searchParams.get('q') || '';
-  const categories = parseCsvOrMulti(searchParams.getAll('category'));
-  const languages = parseCsvOrMulti(searchParams.getAll('language'));
-  const tags = parseCsvOrMulti(searchParams.getAll('tag'));
-  const networks = parseCsvOrMulti(searchParams.getAll('network')).filter(
-    (network): network is NonNullable<ContractSearchParams['network']> =>
-      network === 'mainnet' || network === 'testnet' || network === 'futurenet',
+export function getInitialFilters(
+  searchParams: URLSearchParams,
+): ContractsUiFilters {
+  const query = searchParams.get("query") || searchParams.get("q") || "";
+  const categories = parseCsvOrMulti(searchParams.getAll("category"));
+  const languages = parseCsvOrMulti(searchParams.getAll("language"));
+  const tags = parseCsvOrMulti(searchParams.getAll("tag"));
+  const networks = parseCsvOrMulti(searchParams.getAll("network")).filter(
+    (network): network is NonNullable<ContractSearchParams["network"]> =>
+      network === "mainnet" || network === "testnet" || network === "futurenet",
   );
 
   const sortPreference = resolveInitialSortPreference(
     searchParams,
-    typeof window !== 'undefined' ? window.localStorage : undefined,
+    typeof window !== "undefined" ? window.localStorage : undefined,
   );
-  const parsedPage = Number(searchParams.get('page') || '1');
+  const parsedPage = Number(searchParams.get("page") || "1");
 
   return {
     query,
     categories,
     languages,
     tags,
-    author: searchParams.get('author') || '',
+    author: searchParams.get("author") || "",
     networks,
+<<<<<<< HEAD
     verified_only: searchParams.get('verified_only') === 'true',
+=======
+    verified_only: searchParams.get("verified_only") === "true",
+    favorites_only: searchParams.get("favorites_only") === "true",
+>>>>>>> main
     sort_by: sortPreference.sort_by,
     sort_order: sortPreference.sort_order,
     page: Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1,
@@ -177,7 +234,9 @@ export function getInitialFilters(searchParams: URLSearchParams): ContractsUiFil
   };
 }
 
-export function buildContractsApiParams(filters: ContractsUiFilters): ContractSearchParams {
+export function buildContractsApiParams(
+  filters: ContractsUiFilters,
+): ContractSearchParams {
   return {
     query: filters.query || undefined,
     categories: filters.categories.length > 0 ? filters.categories : undefined,
@@ -185,7 +244,7 @@ export function buildContractsApiParams(filters: ContractsUiFilters): ContractSe
     tags: filters.tags.length > 0 ? filters.tags : undefined,
     networks:
       filters.networks.length > 0
-        ? (filters.networks as Array<'mainnet' | 'testnet' | 'futurenet'>)
+        ? (filters.networks as Array<"mainnet" | "testnet" | "futurenet">)
         : undefined,
     author: filters.author || undefined,
     verified_only: filters.verified_only || undefined,
@@ -218,43 +277,86 @@ function getOptionCounts(
 
 export function ContractsContent() {
   const router = useRouter();
-  const pathname = usePathname() ?? '/contracts';
+  const pathname = usePathname() ?? "/contracts";
   const searchParams = useSearchParams();
   const { logEvent } = useAnalytics();
-  const lastSearchSignatureRef = useRef<string>('');
+  const lastSearchSignatureRef = useRef<string>("");
 
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const [filters, setFilters] = useState<ContractsUiFilters>(() =>
-    getInitialFilters(new URLSearchParams(searchParams?.toString() ?? '')),
+    getInitialFilters(new URLSearchParams(searchParams?.toString() ?? "")),
   );
 
-  const { query, categories, languages, tags, networks, author, verified_only, sort_by, sort_order, page, page_size } = filters;
+  const { favorites } = useFavorites();
+
+  const {
+    query,
+    categories,
+    languages,
+    tags,
+    networks,
+    author,
+    verified_only,
+    favorites_only,
+    sort_by,
+    sort_order,
+    page,
+    page_size,
+  } = filters;
 
   useEffect(() => {
     const params = new URLSearchParams();
-    if (query) params.set('query', query);
-    categories.forEach((category) => params.append('category', category));
-    languages.forEach((language) => params.append('language', language));
-    tags.forEach((tag) => params.append('tag', tag));
-    networks.forEach((network) => params.append('network', network));
-    if (author) params.set('author', author);
-    if (verified_only) params.set('verified_only', 'true');
-    if (sort_by !== DEFAULT_SORT_BY || query) params.set('sort_by', sort_by);
-    if (sort_order !== DEFAULT_SORT_ORDER) params.set('sort_order', sort_order);
-    if (page > 1) params.set('page', String(page));
-    if (page_size !== DEFAULT_PAGE_SIZE) params.set('page_size', String(page_size));
+    if (query) params.set("query", query);
+    categories.forEach((category) => params.append("category", category));
+    languages.forEach((language) => params.append("language", language));
+    tags.forEach((tag) => params.append("tag", tag));
+    networks.forEach((network) => params.append("network", network));
+    if (author) params.set("author", author);
+    if (verified_only) params.set("verified_only", "true");
+    if (favorites_only) params.set("favorites_only", "true");
+    if (sort_by !== DEFAULT_SORT_BY || query) params.set("sort_by", sort_by);
+    if (sort_order !== DEFAULT_SORT_ORDER) params.set("sort_order", sort_order);
+    if (page > 1) params.set("page", String(page));
+    if (page_size !== DEFAULT_PAGE_SIZE)
+      params.set("page_size", String(page_size));
 
     const next = params.toString();
     router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
-  }, [query, categories, languages, tags, networks, author, verified_only, sort_by, sort_order, page, page_size, pathname, router]);
+  }, [
+    query,
+    categories,
+    languages,
+    tags,
+    networks,
+    author,
+    verified_only,
+    favorites_only,
+    sort_by,
+    sort_order,
+    page,
+    page_size,
+    pathname,
+    router,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    persistSortPreference(
+      { sort_by: filters.sort_by, sort_order: filters.sort_order },
+      window.localStorage,
+    );
+  }, [filters.sort_by, filters.sort_order]);
 
   const parsedQuery = useMemo(() => parseAdvancedContractQuery(query), [query]);
-  const useAdvancedSearch = Boolean(query.trim()) && parsedQuery.usesOr && Boolean(parsedQuery.queryNode);
+  const useAdvancedSearch =
+    Boolean(query.trim()) &&
+    parsedQuery.usesOr &&
+    Boolean(parsedQuery.queryNode);
 
   const contractsQueryKey = useMemo(
     () => ({
-      mode: useAdvancedSearch ? 'advanced' : 'simple',
+      mode: useAdvancedSearch ? "advanced" : "simple",
       query,
       categories,
       languages,
@@ -262,6 +364,8 @@ export function ContractsContent() {
       networks,
       author,
       verified_only,
+      favorites_only,
+      favoritesList: favorites_only ? favorites : [],
       sort_by,
       sort_order,
       page,
@@ -280,25 +384,37 @@ export function ContractsContent() {
       tags,
       useAdvancedSearch,
       verified_only,
+      favorites_only,
     ],
   );
 
-  const { data: effectiveData, isLoading, isFetching } = useQuery<ContractsResponse>({
-    queryKey: ['contracts', contractsQueryKey],
+  const {
+    data: effectiveData,
+    isLoading,
+    isFetching,
+  } = useQuery<ContractsResponse>({
+    queryKey: ["contracts", contractsQueryKey],
     queryFn: async () => {
       if (useAdvancedSearch && parsedQuery.queryNode) {
-        const combined = combineAdvancedQueryWithFilters(parsedQuery.queryNode, {
-          categories,
-          networks: networks.length > 0 ? (networks as Array<'mainnet' | 'testnet' | 'futurenet'>) : undefined,
-          tags,
-          author,
-          verified_only,
-        });
+        const combined = combineAdvancedQueryWithFilters(
+          parsedQuery.queryNode,
+          {
+            categories,
+            networks:
+              networks.length > 0
+                ? (networks as Array<"mainnet" | "testnet" | "futurenet">)
+                : undefined,
+            tags,
+            author,
+            verified_only,
+            favorites_only: favorites_only || undefined,
+            favorites_list: favorites_only ? favorites : undefined,
+          },
+        );
 
-        const backendSortBy = sort_by === 'downloads' ? 'interactions' : sort_by;
         return api.advancedSearchContracts({
           query: combined,
-          sort_by: backendSortBy,
+          sort_by,
           sort_order,
           limit: page_size,
           offset: (page - 1) * page_size,
@@ -310,9 +426,14 @@ export function ContractsContent() {
         categories: categories.length > 0 ? categories : undefined,
         languages: languages.length > 0 ? languages : undefined,
         tags: tags.length > 0 ? tags : undefined,
-        networks: networks.length > 0 ? (networks as Array<'mainnet' | 'testnet' | 'futurenet'>) : undefined,
+        networks:
+          networks.length > 0
+            ? (networks as Array<"mainnet" | "testnet" | "futurenet">)
+            : undefined,
         author: author || undefined,
         verified_only: verified_only || undefined,
+        favorites_only: favorites_only || undefined,
+        favorites_list: favorites_only ? favorites : undefined,
         sort_by,
         sort_order,
         page,
@@ -323,19 +444,22 @@ export function ContractsContent() {
   });
 
   const { data: stats } = useQuery({
-    queryKey: ['stats'],
+    queryKey: ["stats"],
     queryFn: () => api.getStats(),
   });
 
   // Used to determine if results are empty for UI
   const paginationRange = useMemo(
-    () => (effectiveData ? getPaginationRange(filters.page, effectiveData.total_pages) : []),
+    () =>
+      effectiveData
+        ? getPaginationRange(filters.page, effectiveData.total_pages)
+        : [],
     [filters.page, effectiveData?.total_pages],
   );
 
   useEffect(() => {
     const payload = {
-      keyword: filters.query || '',
+      keyword: filters.query || "",
       categories: filters.categories,
       languages: filters.languages,
       networks: filters.networks,
@@ -362,32 +486,35 @@ export function ContractsContent() {
     if (lastSearchSignatureRef.current === signature) return;
     lastSearchSignatureRef.current = signature;
 
-    logEvent('search_performed', payload);
+    logEvent("search_performed", payload);
   }, [filters.query, filters, logEvent]);
 
   const clearAllFilters = () =>
     setFilters((current) => ({
       ...current,
-      query: '',
+      query: "",
       categories: [],
       languages: [],
       tags: [],
-      author: '',
+      author: "",
       networks: [],
       verified_only: false,
+      favorites_only: false,
       sort_by: DEFAULT_SORT_BY,
       sort_order: DEFAULT_SORT_ORDER,
       page: 1,
     }));
 
   const activeFilterChips = useMemo(() => {
-    const chips: Array<{ id: string; label: string; onRemove: () => void }> = [];
+    const chips: Array<{ id: string; label: string; onRemove: () => void }> =
+      [];
 
     if (filters.query) {
       chips.push({
-        id: 'query',
+        id: "query",
         label: `Search: ${filters.query}`,
-        onRemove: () => setFilters((current) => ({ ...current, query: '', page: 1 })),
+        onRemove: () =>
+          setFilters((current) => ({ ...current, query: "", page: 1 })),
       });
     }
 
@@ -445,25 +572,46 @@ export function ContractsContent() {
 
     if (filters.author) {
       chips.push({
-        id: 'author',
+        id: "author",
         label: `Author: ${filters.author}`,
-        onRemove: () => setFilters((current) => ({ ...current, author: '', page: 1 })),
+        onRemove: () =>
+          setFilters((current) => ({ ...current, author: "", page: 1 })),
       });
     }
 
     if (filters.verified_only) {
       chips.push({
-        id: 'verified',
-        label: 'Verified only',
+        id: "verified",
+        label: "Verified only",
         onRemove: () =>
-          setFilters((current) => ({ ...current, verified_only: false, page: 1 })),
+          setFilters((current) => ({
+            ...current,
+            verified_only: false,
+            page: 1,
+          })),
       });
     }
 
-    if (filters.sort_by !== DEFAULT_SORT_BY || filters.sort_order !== DEFAULT_SORT_ORDER) {
+    if (filters.favorites_only) {
       chips.push({
-        id: 'sort',
-        label: `Sort: ${filters.sort_by.replace('_', ' ')} (${filters.sort_order})`,
+        id: "favorites",
+        label: "Favorites only",
+        onRemove: () =>
+          setFilters((current) => ({
+            ...current,
+            favorites_only: false,
+            page: 1,
+          })),
+      });
+    }
+
+    if (
+      filters.sort_by !== DEFAULT_SORT_BY ||
+      filters.sort_order !== DEFAULT_SORT_ORDER
+    ) {
+      chips.push({
+        id: "sort",
+        label: `Sort: ${filters.sort_by.replace("_", " ")} (${filters.sort_order})`,
         onRemove: () =>
           setFilters((current) => ({
             ...current,
@@ -515,7 +663,10 @@ export function ContractsContent() {
     onToggleNetwork: (value: string) =>
       setFilters((current) => ({
         ...current,
-        networks: toggleOne(current.networks, value as ContractsUiFilters['networks'][number]),
+        networks: toggleOne(
+          current.networks,
+          value as ContractsUiFilters["networks"][number],
+        ),
         page: 1,
       })),
     onClearNetworks: () =>
@@ -530,6 +681,9 @@ export function ContractsContent() {
     verifiedOnly: filters.verified_only,
     onVerifiedChange: (value: boolean) =>
       setFilters((current) => ({ ...current, verified_only: value, page: 1 })),
+    favoritesOnly: filters.favorites_only,
+    onFavoritesChange: (value: boolean) =>
+      setFilters((current) => ({ ...current, favorites_only: value, page: 1 })),
     activeFilterCount: activeFilterChips.length,
     onResetAll: clearAllFilters,
   };
@@ -551,26 +705,47 @@ export function ContractsContent() {
             </h1>
             <p className="text-lg text-muted-foreground mb-10">
               Discover verified Soroban smart contracts on the Stellar network.
-              Search, filter, and find the perfect building blocks for your project.
+              Search, filter, and find the perfect building blocks for your
+              project.
             </p>
 
             {/* Inline search */}
             <div className="max-w-2xl mx-auto mb-10">
               <SearchBar
                 value={filters.query}
+<<<<<<< HEAD
                 onChange={(next: string) =>
                   setFilters((current) => ({ ...current, query: next, page: 1 }))
                 }
                 onClear={() => setFilters((current) => ({ ...current, query: '', page: 1 }))}
                 onCommit={(committed: string) => {
+=======
+                onChange={(next) =>
+                  setFilters((current) => ({
+                    ...current,
+                    query: next,
+                    page: 1,
+                  }))
+                }
+                onClear={() =>
+                  setFilters((current) => ({ ...current, query: "", page: 1 }))
+                }
+                onCommit={(committed) => {
+>>>>>>> main
                   const parsed = parseAdvancedContractQuery(committed);
                   if (parsed.usesOr) {
-                    setFilters((current) => ({ ...current, query: committed, page: 1 }));
+                    setFilters((current) => ({
+                      ...current,
+                      query: committed,
+                      page: 1,
+                    }));
                     return;
                   }
 
                   setFilters((current) => {
-                    const mergedTags = Array.from(new Set([...current.tags, ...parsed.tags]));
+                    const mergedTags = Array.from(
+                      new Set([...current.tags, ...parsed.tags]),
+                    );
                     return {
                       ...current,
                       query: parsed.cleanedSimpleQuery,
@@ -588,21 +763,27 @@ export function ContractsContent() {
               <div className="bg-background rounded-xl p-4 border border-border shadow-sm">
                 <div className="flex items-center justify-center gap-1.5 mb-1">
                   <Package className="w-4 h-4 text-primary" />
-                  <span className="text-2xl font-bold">{stats?.total_contracts ?? '—'}</span>
+                  <span className="text-2xl font-bold">
+                    {stats?.total_contracts ?? "—"}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground">Contracts</p>
               </div>
               <div className="bg-background rounded-xl p-4 border border-border shadow-sm">
                 <div className="flex items-center justify-center gap-1.5 mb-1">
                   <CheckCircle className="w-4 h-4 text-green-500" />
-                  <span className="text-2xl font-bold">{stats?.verified_contracts ?? '—'}</span>
+                  <span className="text-2xl font-bold">
+                    {stats?.verified_contracts ?? "—"}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground">Verified</p>
               </div>
               <div className="bg-background rounded-xl p-4 border border-border shadow-sm">
                 <div className="flex items-center justify-center gap-1.5 mb-1">
                   <Users className="w-4 h-4 text-secondary" />
-                  <span className="text-2xl font-bold">{stats?.total_publishers ?? '—'}</span>
+                  <span className="text-2xl font-bold">
+                    {stats?.total_publishers ?? "—"}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground">Publishers</p>
               </div>
@@ -631,19 +812,23 @@ export function ContractsContent() {
           <div className="flex flex-wrap items-center gap-2">
             <SortDropdown
               value={filters.sort_by}
+              order={filters.sort_order}
               onChange={(value) =>
-                setFilters((current) => ({ ...current, sort_by: value, page: 1 }))
+                setFilters((current) => ({
+                  ...current,
+                  sort_by: value,
+                  page: 1,
+                }))
+              }
+              onOrderChange={(value) =>
+                setFilters((current) => ({
+                  ...current,
+                  sort_order: value,
+                  page: 1,
+                }))
               }
               showRelevance={!!filters.query}
             />
-            <select
-              value={filters.sort_order}
-              onChange={(e) => setFilters(prev => ({ ...prev, sort_order: e.target.value as 'asc' | 'desc', page: 1 }))}
-              className="px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
-            >
-              <option value="desc">Descending</option>
-              <option value="asc">Ascending</option>
-            </select>
             <button
               type="button"
               onClick={() => setMobileFiltersOpen(true)}
@@ -659,13 +844,15 @@ export function ContractsContent() {
 
         <div className="flex gap-8 mt-6">
           {/* Sidebar filters (desktop) */}
-          <aside className="hidden md:flex flex-col w-72 flex-shrink-0 gap-6">
+          <aside className="hidden md:flex flex-col w-72 shrink-0 gap-6">
             <div className="gradient-border-card p-5 sticky top-20">
               <div className="flex items-center gap-2 mb-5">
                 <Filter className="w-4 h-4 text-primary" />
-                <h3 className="text-sm font-semibold text-foreground">Filters</h3>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Filters
+                </h3>
               </div>
-              
+
               <>
                 <FilterPanel {...filterPanelProps} />
                 <div className="mt-5 pt-4 border-t border-border">
@@ -711,7 +898,11 @@ export function ContractsContent() {
                   className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-8 animate-in fade-in duration-300"
                 >
                   {effectiveData.items.map((contract: Contract) => (
-                    <ContractCard key={contract.id} contract={contract} />
+                    <ContractCard
+                      key={contract.id}
+                      contract={contract}
+                      sortBy={filters.sort_by}
+                    />
                   ))}
                 </div>
 
@@ -720,7 +911,10 @@ export function ContractsContent() {
                     <button
                       type="button"
                       onClick={() =>
-                        setFilters((current) => ({ ...current, page: Math.max(1, current.page - 1) }))
+                        setFilters((current) => ({
+                          ...current,
+                          page: Math.max(1, current.page - 1),
+                        }))
                       }
                       disabled={filters.page <= 1}
                       className="px-4 py-2 rounded-lg border border-border text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent transition-colors text-sm font-medium"
@@ -729,7 +923,7 @@ export function ContractsContent() {
                     </button>
 
                     {paginationRange.map((item, index) => {
-                      if (item === 'ellipsis') {
+                      if (item === "ellipsis") {
                         return (
                           <span
                             key={`ellipsis-${index}`}
@@ -750,14 +944,17 @@ export function ContractsContent() {
                           onClick={() =>
                             setFilters((current) => ({
                               ...current,
-                              page: Math.min(effectiveData.total_pages, Math.max(1, item)),
+                              page: Math.min(
+                                effectiveData.total_pages,
+                                Math.max(1, item),
+                              ),
                             }))
                           }
-                          aria-current={isActive ? 'page' : undefined}
+                          aria-current={isActive ? "page" : undefined}
                           className={
                             isActive
-                              ? 'px-3 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm btn-glow'
-                              : 'px-3 py-2 rounded-lg border border-border text-foreground hover:bg-accent transition-colors text-sm'
+                              ? "px-3 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm btn-glow"
+                              : "px-3 py-2 rounded-lg border border-border text-foreground hover:bg-accent transition-colors text-sm"
                           }
                         >
                           {item}
@@ -770,7 +967,10 @@ export function ContractsContent() {
                       onClick={() =>
                         setFilters((current) => ({
                           ...current,
-                          page: Math.min(effectiveData.total_pages, current.page + 1),
+                          page: Math.min(
+                            effectiveData.total_pages,
+                            current.page + 1,
+                          ),
                         }))
                       }
                       disabled={filters.page >= effectiveData.total_pages}
@@ -784,10 +984,17 @@ export function ContractsContent() {
             ) : (
               <div className="text-center py-16 bg-card/50 border border-border rounded-xl">
                 <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-semibold mb-2">No contracts found</h3>
+                <h3 className="text-lg font-semibold mb-2">
+                  No contracts found
+                </h3>
                 <p className="text-muted-foreground max-w-md mx-auto mb-6 text-sm">
+<<<<<<< HEAD
                   We couldn&apos;t find any contracts matching your current filters. Try adjusting your
                   search or clearing some filters.
+=======
+                  We couldn't find any contracts matching your current filters.
+                  Try adjusting your search or clearing some filters.
+>>>>>>> main
                 </p>
                 <button
                   type="button"
@@ -813,8 +1020,12 @@ export function ContractsContent() {
           <div className="absolute inset-y-0 right-0 flex w-full max-w-sm flex-col bg-background shadow-2xl">
             <div className="flex items-center justify-between border-b border-border px-4 py-4">
               <div>
-                <h2 className="text-base font-semibold text-foreground">Filters</h2>
-                <p className="text-xs text-muted-foreground">Narrow down contract discovery</p>
+                <h2 className="text-base font-semibold text-foreground">
+                  Filters
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Narrow down contract discovery
+                </p>
               </div>
               <button
                 type="button"

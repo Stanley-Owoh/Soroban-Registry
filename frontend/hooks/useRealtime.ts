@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useContext } from 'react';
-import { RealtimeContext } from '@/providers/RealtimeProvider';
+import { useContext } from "react";
+import { RealtimeContext } from "@/providers/RealtimeProvider";
 
 export function useRealtime() {
   const context = useContext(RealtimeContext);

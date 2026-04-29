@@ -1,6 +1,10 @@
-import React from 'react';
-import FormField from './FormField';
-import { getFormControlId, getInputClassName, getAriaDescribedBy } from '@/lib/utils/form';
+import React from "react";
+import FormField from "./FormField";
+import {
+  getFormControlId,
+  getInputClassName,
+  getAriaDescribedBy,
+} from "@/lib/utils/form";
 
 type Props = React.InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
@@ -8,7 +12,13 @@ type Props = React.InputHTMLAttributes<HTMLInputElement> & {
   description?: string;
 };
 
-export default function FormInput({ label, error, description, className, ...rest }: Props) {
+export default function FormInput({
+  label,
+  error,
+  description,
+  className,
+  ...rest
+}: Props) {
   const id = getFormControlId(rest.id, rest.name);
   const controlClassName = getInputClassName(className);
   const ariaDescribedBy = getAriaDescribedBy(id, !!error);

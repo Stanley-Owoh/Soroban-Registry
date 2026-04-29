@@ -1,9 +1,9 @@
-import React from 'react';
-import Link from 'next/link';
-import { StatsResponse } from '@/types/stats';
+import React from "react";
+import Link from "next/link";
+import { StatsResponse } from "@/types/stats";
 
 interface TopPublishersTableProps {
-  data: StatsResponse['topPublishers'];
+  data: StatsResponse["topPublishers"];
 }
 
 const TopPublishersTable: React.FC<TopPublishersTableProps> = ({ data }) => {

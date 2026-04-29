@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
-import { Search, X, Plus } from 'lucide-react';
-import type { Contract } from '@/lib/api';
+import { useMemo, useState } from "react";
+import { Search, X, Plus } from "lucide-react";
+import type { Contract } from "@/lib/api";
 
 type Props = {
   available: Contract[];
@@ -29,12 +29,19 @@ export default function ContractSelector({
 }: Props) {
   const [open, setOpen] = useState(false);
 
-  const selectedIdSet = useMemo(() => new Set(selected.map((s) => s.id)), [selected]);
+  const selectedIdSet = useMemo(
+    () => new Set(selected.map((s) => s.id)),
+    [selected],
+  );
 
   const suggestions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const filtered = q
-      ? available.filter((c) => c.name.toLowerCase().includes(q) || c.contract_id.toLowerCase().includes(q))
+      ? available.filter(
+          (c) =>
+            c.name.toLowerCase().includes(q) ||
+            c.contract_id.toLowerCase().includes(q),
+        )
       : available;
     return filtered.slice(0, 12);
   }, [available, searchQuery]);
@@ -44,8 +51,12 @@ export default function ContractSelector({
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-foreground">Select contracts</h2>
-            <p className="text-xs text-muted-foreground">Pick 2-4 contracts. Duplicates are not allowed.</p>
+            <h2 className="text-sm font-semibold text-foreground">
+              Select contracts
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Pick 2-4 contracts. Duplicates are not allowed.
+            </p>
           </div>
         </div>
 
@@ -66,9 +77,13 @@ export default function ContractSelector({
             <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-border bg-card shadow-lg shadow-black/8">
               <div className="max-h-64 overflow-auto">
                 {isLoading ? (
-                  <div className="px-3 py-3 text-xs text-muted-foreground">Loading contracts...</div>
+                  <div className="px-3 py-3 text-xs text-muted-foreground">
+                    Loading contracts...
+                  </div>
                 ) : suggestions.length === 0 ? (
-                  <div className="px-3 py-3 text-xs text-muted-foreground">No matches.</div>
+                  <div className="px-3 py-3 text-xs text-muted-foreground">
+                    No matches.
+                  </div>
                 ) : (
                   <ul className="py-1">
                     {suggestions.map((c) => {
@@ -81,19 +96,25 @@ export default function ContractSelector({
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => onAdd(c)}
                             className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors ${
-                              disabled ? 'cursor-not-allowed text-muted-foreground' : 'text-foreground hover:bg-accent'
+                              disabled
+                                ? "cursor-not-allowed text-muted-foreground"
+                                : "text-foreground hover:bg-accent"
                             }`}
                           >
                             <div className="min-w-0">
-                              <div className="truncate font-medium">{c.name}</div>
-                              <div className="truncate font-mono text-xs text-muted-foreground">{c.contract_id}</div>
+                              <div className="truncate font-medium">
+                                {c.name}
+                              </div>
+                              <div className="truncate font-mono text-xs text-muted-foreground">
+                                {c.contract_id}
+                              </div>
                             </div>
                             <div className="shrink-0">
                               <span
                                 className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${
                                   disabled
-                                    ? 'border-border bg-muted text-muted-foreground'
-                                    : 'border-primary/20 bg-primary/10 text-primary'
+                                    ? "border-border bg-muted text-muted-foreground"
+                                    : "border-primary/20 bg-primary/10 text-primary"
                                 }`}
                               >
                                 <Plus className="h-3 w-3" />

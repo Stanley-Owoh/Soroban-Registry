@@ -1,8 +1,8 @@
-import React from 'react';
-import { StatsResponse } from '@/types/stats';
+import React from "react";
+import { StatsResponse } from "@/types/stats";
 
 interface NetworkDistributionProps {
-  data: StatsResponse['networkBreakdown'];
+  data: StatsResponse["networkBreakdown"];
 }
 
 const NetworkDistribution: React.FC<NetworkDistributionProps> = ({ data }) => {

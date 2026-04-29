@@ -1,3 +1,4 @@
+use crate::net::RequestBuilderExt;
 // cli/src/multisig.rs
 // CLI functions for Multi-Signature Contract Deployment (issue #47)
 
@@ -17,7 +18,7 @@ pub async fn create_policy(
     expiry_secs: Option<u32>,
     created_by: &str,
 ) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!("{}/api/multisig/policies", api_url);
 
     let payload = json!({
@@ -33,7 +34,7 @@ pub async fn create_policy(
     let response = client
         .post(&url)
         .json(&payload)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to reach registry API")?;
 
@@ -96,7 +97,7 @@ pub async fn create_proposal(
     proposer: &str,
     description: Option<&str>,
 ) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!("{}/api/contracts/deploy-proposal", api_url);
 
     let payload = json!({
@@ -114,7 +115,7 @@ pub async fn create_proposal(
     let response = client
         .post(&url)
         .json(&payload)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to create deployment proposal")?;
 
@@ -177,7 +178,7 @@ pub async fn sign_proposal(
     signer_address: &str,
     signature_data: Option<&str>,
 ) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!("{}/api/contracts/{}/sign", api_url, proposal_id);
 
     let payload = json!({
@@ -192,7 +193,7 @@ pub async fn sign_proposal(
     let response = client
         .post(&url)
         .json(&payload)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to sign proposal")?;
 
@@ -236,7 +237,7 @@ pub async fn sign_proposal(
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn execute_proposal(api_url: &str, proposal_id: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!("{}/api/contracts/{}/execute", api_url, proposal_id);
 
     println!("\n{}", "Executing deployment proposal...".bold().cyan());
@@ -244,7 +245,7 @@ pub async fn execute_proposal(api_url: &str, proposal_id: &str) -> Result<()> {
 
     let response = client
         .post(&url)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to execute proposal")?;
 
@@ -282,12 +283,12 @@ pub async fn execute_proposal(api_url: &str, proposal_id: &str) -> Result<()> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn proposal_info(api_url: &str, proposal_id: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let url = format!("{}/api/contracts/{}/proposal", api_url, proposal_id);
 
     let response = client
         .get(&url)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to fetch proposal info")?;
 
@@ -411,7 +412,7 @@ pub async fn list_proposals(
     status_filter: Option<&str>,
     limit: usize,
 ) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = crate::net::client();
     let mut url = format!("{}/api/multisig/proposals?limit={}", api_url, limit);
     if let Some(s) = status_filter {
         url.push_str(&format!("&status={}", s));
@@ -419,7 +420,7 @@ pub async fn list_proposals(
 
     let response = client
         .get(&url)
-        .send()
+        .send_with_retry()
         .await
         .context("Failed to list proposals")?;
 

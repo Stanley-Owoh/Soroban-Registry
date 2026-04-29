@@ -48,7 +48,10 @@ function cidForPayload(payload: string): string {
   return `bafy${BigInt(`0x${chunks}`).toString(32).padStart(52, "0").slice(0, 52)}`;
 }
 
-export function createGatewayUrls(cid: string, gateways = ["https://ipfs.io/ipfs", "https://cloudflare-ipfs.com/ipfs"]) {
+export function createGatewayUrls(
+  cid: string,
+  gateways = ["https://ipfs.io/ipfs", "https://cloudflare-ipfs.com/ipfs"],
+) {
   return gateways.map((gateway) => `${gateway.replace(/\/$/, "")}/${cid}`);
 }
 
@@ -72,6 +75,9 @@ export function verifyPinnedContract(pin: PinnedContractMetadata): boolean {
   return pin.cid === pinContractMetadata(pin.metadata, pin.pinnedAt).cid;
 }
 
-export function retrievePinnedContract(cid: string, pins: PinnedContractMetadata[]) {
+export function retrievePinnedContract(
+  cid: string,
+  pins: PinnedContractMetadata[],
+) {
   return pins.find((pin) => pin.cid === cid) ?? null;
 }

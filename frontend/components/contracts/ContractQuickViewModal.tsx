@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { useEffect, useId, useMemo, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
-import { ExternalLink, Globe, Layers3, Loader2, Tag, X } from 'lucide-react';
-import { api } from '@/lib/api';
-import type { Contract } from '@/lib/api';
+import { useEffect, useId, useMemo, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { ExternalLink, Globe, Layers3, Loader2, Tag, X } from "lucide-react";
+import { api } from "@/lib/api";
+import type { Contract } from "@/types";
 import {
   extractAbiMethodNames,
   getQuickViewVerificationStatus,
-} from '@/lib/contractQuickView';
-import VerificationBadge from '@/components/verification/VerificationBadge';
+} from "@/lib/contractQuickView";
+import VerificationBadge from "@/components/verification/VerificationBadge";
 
 interface ContractQuickViewModalProps {
   contract: Contract;
@@ -26,7 +26,7 @@ export default function ContractQuickViewModal(
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const { data: contractDetails, isFetching: isContractRefreshing } = useQuery({
-    queryKey: ['contract-quick-view', contract.id],
+    queryKey: ["contract-quick-view", contract.id],
     queryFn: () => api.getContract(contract.id),
     enabled: isOpen,
   });
@@ -36,7 +36,7 @@ export default function ContractQuickViewModal(
     isLoading: isAbiLoading,
     error: abiError,
   } = useQuery({
-    queryKey: ['contract-quick-view-abi', contract.id],
+    queryKey: ["contract-quick-view-abi", contract.id],
     queryFn: () => api.getContractAbi(contract.id),
     enabled: isOpen,
   });
@@ -54,17 +54,20 @@ export default function ContractQuickViewModal(
     }
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         onClose();
       }
     };
 
-    window.addEventListener('keydown', onKeyDown);
-    const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
+    window.addEventListener("keydown", onKeyDown);
+    const focusTimer = window.setTimeout(
+      () => closeButtonRef.current?.focus(),
+      0,
+    );
 
     return () => {
       window.clearTimeout(focusTimer);
-      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener("keydown", onKeyDown);
     };
   }, [isOpen, onClose]);
 
@@ -78,7 +81,7 @@ export default function ContractQuickViewModal(
     const previousPaddingRight = body.style.paddingRight;
     const scrollbarWidth = window.innerWidth - documentElement.clientWidth;
 
-    body.style.overflow = 'hidden';
+    body.style.overflow = "hidden";
     if (scrollbarWidth > 0) {
       body.style.paddingRight = `${scrollbarWidth}px`;
     }
@@ -122,7 +125,10 @@ export default function ContractQuickViewModal(
                   </span>
                 )}
               </div>
-              <h2 id={titleId} className="truncate text-2xl font-bold text-foreground">
+              <h2
+                id={titleId}
+                className="truncate text-2xl font-bold text-foreground"
+              >
                 {displayContract.name}
               </h2>
               <p className="mt-1 font-mono text-xs text-muted-foreground">
@@ -157,7 +163,7 @@ export default function ContractQuickViewModal(
                   Category
                 </div>
                 <div className="mt-1 text-sm font-medium text-foreground">
-                  {displayContract.category || 'Uncategorized'}
+                  {displayContract.category || "Uncategorized"}
                 </div>
               </div>
 
@@ -220,7 +226,9 @@ export default function ContractQuickViewModal(
                       <code className="truncate text-sm font-medium text-foreground">
                         {methodName}
                       </code>
-                      <span className="text-xs text-muted-foreground">method</span>
+                      <span className="text-xs text-muted-foreground">
+                        method
+                      </span>
                     </li>
                   ))}
                 </ol>
@@ -234,7 +242,8 @@ export default function ContractQuickViewModal(
 
           <div className="flex flex-col gap-3 border-t border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p className="text-xs text-muted-foreground">
-              Press <span className="font-mono text-foreground">Esc</span> to close.
+              Press <span className="font-mono text-foreground">Esc</span> to
+              close.
             </p>
             <Link
               href={`/contracts/${contract.id}`}
@@ -250,4 +259,3 @@ export default function ContractQuickViewModal(
     </div>
   );
 }
-

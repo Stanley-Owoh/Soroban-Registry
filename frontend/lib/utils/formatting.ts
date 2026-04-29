@@ -10,7 +10,7 @@ export function formatAddress(
   address: string,
   startChars = 6,
   endChars = 4,
-  separator = '...'
+  separator = "...",
 ): string {
   if (!address || address.length <= startChars + endChars) {
     return address;
@@ -42,7 +42,7 @@ export function formatPublicKey(address: string): string {
  * @returns Formatted hash (8 chars start)
  */
 export function formatTransactionHash(hash: string): string {
-  return formatAddress(hash, 8, 0, '…');
+  return formatAddress(hash, 8, 0, "…");
 }
 
 /**
@@ -55,7 +55,7 @@ export function formatTransactionHash(hash: string): string {
 export function formatShortenedText(
   text: string,
   maxLength = 14,
-  suffix = '…'
+  suffix = "…",
 ): string {
   if (text.length > maxLength) {
     return text.slice(0, maxLength - 1) + suffix;

@@ -217,9 +217,12 @@ fn read_env_string(key: &str) -> Option<String> {
 }
 
 fn parse_timeout(raw: &str, source: &str) -> Result<u64> {
-    let timeout = raw
-        .parse::<u64>()
-        .with_context(|| format!("Invalid value for {}: `{}` (expected positive integer)", source, raw))?;
+    let timeout = raw.parse::<u64>().with_context(|| {
+        format!(
+            "Invalid value for {}: `{}` (expected positive integer)",
+            source, raw
+        )
+    })?;
     validate_timeout(timeout)?;
     Ok(timeout)
 }
@@ -447,12 +450,17 @@ timeout = 55
             timeout: Some(30),
         };
 
-        let err = resolve_runtime_config_with_sources(None, None, None, EnvOverrides::default(), defaults)
-            .unwrap_err();
-        assert!(
-            err.to_string()
-                .contains("api_base must start with http:// or https://")
-        );
+        let err = resolve_runtime_config_with_sources(
+            None,
+            None,
+            None,
+            EnvOverrides::default(),
+            defaults,
+        )
+        .unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("api_base must start with http:// or https://"));
     }
 
     #[test]
@@ -463,8 +471,14 @@ timeout = 55
             timeout: Some(0),
         };
 
-        let err = resolve_runtime_config_with_sources(None, None, None, EnvOverrides::default(), defaults)
-            .unwrap_err();
+        let err = resolve_runtime_config_with_sources(
+            None,
+            None,
+            None,
+            EnvOverrides::default(),
+            defaults,
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("timeout must be greater than 0"));
     }
 }

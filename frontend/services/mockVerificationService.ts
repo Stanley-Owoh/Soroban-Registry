@@ -8,14 +8,18 @@ import type {
   VerificationStatusChangeEvent,
   VerificationStatusResponse,
   VerificationSubmission,
-} from '@/types/verification';
+} from "@/types/verification";
 
-const STORAGE_KEY = 'sr_verification_requests_v1';
-const EVENT_NAME = 'sr_verification_status_changed';
+const STORAGE_KEY = "sr_verification_requests_v1";
+const EVENT_NAME = "sr_verification_status_changed";
 
 type StoredRequest = VerificationRequest & {
   // Stores future status transitions so refreshes can resume the same progression.
-  scheduledTransitions?: Array<{ status: VerificationStatus; atMs: number; message?: string }>;
+  scheduledTransitions?: Array<{
+    status: VerificationStatus;
+    atMs: number;
+    message?: string;
+  }>;
 };
 
 function nowIso(): string {
@@ -32,8 +36,10 @@ function safeParse<T>(raw: string | null): T | null {
 }
 
 function readAll(): StoredRequest[] {
-  if (typeof window === 'undefined') return [];
-  const parsed = safeParse<StoredRequest[]>(window.localStorage.getItem(STORAGE_KEY));
+  if (typeof window === "undefined") return [];
+  const parsed = safeParse<StoredRequest[]>(
+    window.localStorage.getItem(STORAGE_KEY),
+  );
   if (!Array.isArray(parsed)) return [];
   return parsed.map((item) => {
     const createdAt = item.createdAt || nowIso();
@@ -41,17 +47,22 @@ function readAll(): StoredRequest[] {
       ...item,
       logs: Array.isArray(item.logs) ? item.logs : [],
       metrics: item.metrics || baseMetrics(createdAt),
-      statusHistory: Array.isArray(item.statusHistory) ? item.statusHistory : [],
+      statusHistory: Array.isArray(item.statusHistory)
+        ? item.statusHistory
+        : [],
     };
   });
 }
 
 function writeAll(next: StoredRequest[]): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
 }
 
-function updateRequest(id: string, updater: (prev: StoredRequest) => StoredRequest): StoredRequest | null {
+function updateRequest(
+  id: string,
+  updater: (prev: StoredRequest) => StoredRequest,
+): StoredRequest | null {
   const all = readAll();
   const idx = all.findIndex((r) => r.id === id);
   if (idx === -1) return null;
@@ -71,13 +82,17 @@ function hashToUnitInterval(input: string): number {
 }
 
 function dispatchStatusChange(payload: VerificationStatusChangeEvent): void {
-  if (typeof window === 'undefined') return;
-  window.dispatchEvent(new CustomEvent<VerificationStatusChangeEvent>(EVENT_NAME, { detail: payload }));
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<VerificationStatusChangeEvent>(EVENT_NAME, {
+      detail: payload,
+    }),
+  );
 }
 
 function makeLogEntry(params: {
   level: VerificationLogLevel;
-  phase: VerificationLogEntry['phase'];
+  phase: VerificationLogEntry["phase"];
   message: string;
   output?: string;
 }): VerificationLogEntry {
@@ -102,8 +117,10 @@ function baseMetrics(createdAt: string): VerificationMetrics {
   };
 }
 
-export function subscribeToVerificationStatusChanges(handler: (evt: VerificationStatusChangeEvent) => void): () => void {
-  if (typeof window === 'undefined') return () => undefined;
+export function subscribeToVerificationStatusChanges(
+  handler: (evt: VerificationStatusChangeEvent) => void,
+): () => void {
+  if (typeof window === "undefined") return () => undefined;
 
   const listener = (e: Event) => {
     const ce = e as CustomEvent<VerificationStatusChangeEvent>;
@@ -115,18 +132,43 @@ export function subscribeToVerificationStatusChanges(handler: (evt: Verification
   return () => window.removeEventListener(EVENT_NAME, listener);
 }
 
-function pushStatus(request: StoredRequest, nextStatus: VerificationStatus, message?: string): StoredRequest {
+function pushStatus(
+  request: StoredRequest,
+  nextStatus: VerificationStatus,
+  message?: string,
+): StoredRequest {
   const next: StatusEvent = { status: nextStatus, at: nowIso(), message };
   const statusLog = makeLogEntry({
-    level: nextStatus === 'rejected' ? 'error' : 'info',
-    phase: nextStatus === 'submitted' ? 'submission' : nextStatus === 'under_review' ? 'review' : 'decision',
+    level: nextStatus === "rejected" ? "error" : "info",
+    phase:
+      nextStatus === "submitted"
+        ? "submission"
+        : nextStatus === "under_review"
+          ? "review"
+          : "decision",
     message: message || `Status changed to ${nextStatus}`,
     output: JSON.stringify({ status: nextStatus, at: next.at }, null, 2),
   });
-  const elapsedMs = Math.max(100, new Date(next.at).getTime() - new Date(request.createdAt).getTime());
-  const checksPassed = nextStatus === 'approved' ? 16 : nextStatus === 'under_review' ? 8 : request.metrics.checksPassed;
-  const checksFailed = nextStatus === 'rejected' ? Math.max(1, request.metrics.checksFailed) : request.metrics.checksFailed;
-  const coveragePct = nextStatus === 'approved' ? 100 : nextStatus === 'under_review' ? 82 : request.metrics.coveragePct;
+  const elapsedMs = Math.max(
+    100,
+    new Date(next.at).getTime() - new Date(request.createdAt).getTime(),
+  );
+  const checksPassed =
+    nextStatus === "approved"
+      ? 16
+      : nextStatus === "under_review"
+        ? 8
+        : request.metrics.checksPassed;
+  const checksFailed =
+    nextStatus === "rejected"
+      ? Math.max(1, request.metrics.checksFailed)
+      : request.metrics.checksFailed;
+  const coveragePct =
+    nextStatus === "approved"
+      ? 100
+      : nextStatus === "under_review"
+        ? 82
+        : request.metrics.coveragePct;
   return {
     ...request,
     status: nextStatus,
@@ -142,28 +184,38 @@ function pushStatus(request: StoredRequest, nextStatus: VerificationStatus, mess
       lastUpdatedAt: next.at,
     },
     lastErrorDetails:
-      nextStatus === 'rejected'
-        ? 'Static analyzer detected an unbounded authorization path in transfer() under edge-case call ordering.'
+      nextStatus === "rejected"
+        ? "Static analyzer detected an unbounded authorization path in transfer() under edge-case call ordering."
         : undefined,
   };
 }
 
 function ensureProgressionScheduled(request: StoredRequest): StoredRequest {
-  if (request.scheduledTransitions && request.scheduledTransitions.length > 0) return request;
-  if (request.status === 'approved' || request.status === 'rejected') return request;
+  if (request.scheduledTransitions && request.scheduledTransitions.length > 0)
+    return request;
+  if (request.status === "approved" || request.status === "rejected")
+    return request;
 
   // Deterministic mock outcome per request id so "approved vs rejected" is stable across reloads.
   const baseMs = Date.now();
   const approvalChance = 0.75;
   const unit = hashToUnitInterval(request.id);
-  const finalStatus: VerificationStatus = unit < approvalChance ? 'approved' : 'rejected';
+  const finalStatus: VerificationStatus =
+    unit < approvalChance ? "approved" : "rejected";
 
-  const transitions: StoredRequest['scheduledTransitions'] = [
-    { status: 'under_review', atMs: baseMs + 2500, message: 'Verification is now under review.' },
+  const transitions: StoredRequest["scheduledTransitions"] = [
+    {
+      status: "under_review",
+      atMs: baseMs + 2500,
+      message: "Verification is now under review.",
+    },
     {
       status: finalStatus,
       atMs: baseMs + 9000,
-      message: finalStatus === 'approved' ? 'Verification approved.' : 'Verification rejected.',
+      message:
+        finalStatus === "approved"
+          ? "Verification approved."
+          : "Verification rejected.",
     },
   ];
 
@@ -171,11 +223,15 @@ function ensureProgressionScheduled(request: StoredRequest): StoredRequest {
 }
 
 function applyDueTransitions(request: StoredRequest): StoredRequest {
-  if (!request.scheduledTransitions || request.scheduledTransitions.length === 0) return request;
+  if (
+    !request.scheduledTransitions ||
+    request.scheduledTransitions.length === 0
+  )
+    return request;
 
   const now = Date.now();
   let current = request;
-  const remaining: NonNullable<StoredRequest['scheduledTransitions']> = [];
+  const remaining: NonNullable<StoredRequest["scheduledTransitions"]> = [];
 
   for (const t of request.scheduledTransitions) {
     if (t.atMs <= now && current.status !== t.status) {
@@ -188,7 +244,9 @@ function applyDueTransitions(request: StoredRequest): StoredRequest {
   return { ...current, scheduledTransitions: remaining };
 }
 
-export async function submitVerification(params: { submission: VerificationSubmission }): Promise<VerificationRequest> {
+export async function submitVerification(params: {
+  submission: VerificationSubmission;
+}): Promise<VerificationRequest> {
   // Mock server assigns a request id and immediately moves status to `submitted`.
   const id = `vr_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
   const createdAt = nowIso();
@@ -197,14 +255,20 @@ export async function submitVerification(params: { submission: VerificationSubmi
     id,
     createdAt,
     updatedAt: createdAt,
-    status: 'submitted',
+    status: "submitted",
     submission: params.submission,
-    statusHistory: [{ status: 'submitted', at: createdAt, message: 'Verification submitted.' }],
+    statusHistory: [
+      {
+        status: "submitted",
+        at: createdAt,
+        message: "Verification submitted.",
+      },
+    ],
     logs: [
       makeLogEntry({
-        level: 'info',
-        phase: 'submission',
-        message: 'Submission accepted and queued.',
+        level: "info",
+        phase: "submission",
+        message: "Submission accepted and queued.",
         output: JSON.stringify(
           {
             network: params.submission.network,
@@ -212,14 +276,15 @@ export async function submitVerification(params: { submission: VerificationSubmi
             riskLevel: params.submission.riskLevel,
           },
           null,
-          2
+          2,
         ),
       }),
       makeLogEntry({
-        level: 'debug',
-        phase: 'precheck',
-        message: 'Running deterministic mock validators.',
-        output: 'validateContractAddress=true\nvalidateNetwork=true\nvalidateDocumentSet=true',
+        level: "debug",
+        phase: "precheck",
+        message: "Running deterministic mock validators.",
+        output:
+          "validateContractAddress=true\nvalidateNetwork=true\nvalidateDocumentSet=true",
       }),
     ],
     metrics: baseMetrics(createdAt),
@@ -229,21 +294,26 @@ export async function submitVerification(params: { submission: VerificationSubmi
   writeAll([request, ...all]);
 
   await new Promise((r) => setTimeout(r, 650));
-  dispatchStatusChange({ id, status: 'submitted' });
+  dispatchStatusChange({ id, status: "submitted" });
   return request;
 }
 
-export async function getVerificationStatus(params: { id: string }): Promise<VerificationStatusResponse> {
+export async function getVerificationStatus(params: {
+  id: string;
+}): Promise<VerificationStatusResponse> {
   const all = readAll();
   const found = all.find((r) => r.id === params.id);
   if (!found) {
-    throw new Error('Verification request not found');
+    throw new Error("Verification request not found");
   }
 
   // Apply any transitions that should have happened while the user was away.
   const scheduled = ensureProgressionScheduled(found);
   const progressed = applyDueTransitions(scheduled);
-  if (progressed.updatedAt !== found.updatedAt || progressed.scheduledTransitions !== found.scheduledTransitions) {
+  if (
+    progressed.updatedAt !== found.updatedAt ||
+    progressed.scheduledTransitions !== found.scheduledTransitions
+  ) {
     updateRequest(params.id, () => progressed);
   }
 
@@ -256,16 +326,25 @@ export function simulateStatusProgression(params: { id: string }): () => void {
   const timeouts: number[] = [];
 
   const schedule = () => {
-    const request = updateRequest(params.id, (prev) => ensureProgressionScheduled(prev));
-    if (!request?.scheduledTransitions || request.scheduledTransitions.length === 0) return;
+    const request = updateRequest(params.id, (prev) =>
+      ensureProgressionScheduled(prev),
+    );
+    if (
+      !request?.scheduledTransitions ||
+      request.scheduledTransitions.length === 0
+    )
+      return;
 
     const remaining = request.scheduledTransitions;
     for (const t of remaining) {
       const delay = Math.max(0, t.atMs - Date.now());
       const timeoutId = window.setTimeout(() => {
         if (!active) return;
-        const updated = updateRequest(params.id, (prev) => applyDueTransitions(prev));
-        if (updated) dispatchStatusChange({ id: params.id, status: updated.status });
+        const updated = updateRequest(params.id, (prev) =>
+          applyDueTransitions(prev),
+        );
+        if (updated)
+          dispatchStatusChange({ id: params.id, status: updated.status });
       }, delay);
       timeouts.push(timeoutId);
     }
@@ -279,22 +358,29 @@ export function simulateStatusProgression(params: { id: string }): () => void {
   };
 }
 
-export async function retryVerification(params: { id: string }): Promise<VerificationRequest> {
+export async function retryVerification(params: {
+  id: string;
+}): Promise<VerificationRequest> {
   const now = nowIso();
   const updated = updateRequest(params.id, (prev) => {
     const cleared: StoredRequest = {
       ...prev,
-      status: 'submitted',
+      status: "submitted",
       updatedAt: now,
-      statusHistory: [...prev.statusHistory, { status: 'submitted', at: now, message: 'Retry requested.' }],
+      statusHistory: [
+        ...prev.statusHistory,
+        { status: "submitted", at: now, message: "Retry requested." },
+      ],
       scheduledTransitions: [],
       logs: [
         ...prev.logs,
         makeLogEntry({
-          level: 'warn',
-          phase: 'retry',
-          message: 'Retry initiated after failure.',
-          output: prev.lastErrorDetails ? `previous_error="${prev.lastErrorDetails}"` : 'previous_error="n/a"',
+          level: "warn",
+          phase: "retry",
+          message: "Retry initiated after failure.",
+          output: prev.lastErrorDetails
+            ? `previous_error="${prev.lastErrorDetails}"`
+            : 'previous_error="n/a"',
         }),
       ],
       metrics: {
@@ -310,8 +396,8 @@ export async function retryVerification(params: { id: string }): Promise<Verific
     return ensureProgressionScheduled(cleared);
   });
 
-  if (!updated) throw new Error('Unable to retry verification request.');
+  if (!updated) throw new Error("Unable to retry verification request.");
   await new Promise((r) => setTimeout(r, 300));
-  dispatchStatusChange({ id: params.id, status: 'submitted' });
+  dispatchStatusChange({ id: params.id, status: "submitted" });
   return updated;
 }

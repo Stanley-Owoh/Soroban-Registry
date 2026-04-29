@@ -1,7 +1,11 @@
-'use client';
+"use client";
 
-import type { ComparableContract, ComparisonMetricKey, CellTone } from '@/utils/comparison';
-import ComparisonRow from './ComparisonRow';
+import type {
+  ComparableContract,
+  ComparisonMetricKey,
+  CellTone,
+} from "@/utils/comparison";
+import ComparisonRow from "./ComparisonRow";
 
 type Metric = {
   key: ComparisonMetricKey;
@@ -21,13 +25,20 @@ export default function ComparisonTable({ contracts, metrics, tones }: Props) {
       <table className="min-w-full">
         <thead className="bg-accent/60">
           <tr>
-            <th className="px-3 py-3 text-left text-xs font-semibold text-muted-foreground">Attribute</th>
+            <th className="px-3 py-3 text-left text-xs font-semibold text-muted-foreground">
+              Attribute
+            </th>
             {contracts.map((c) => (
-              <th key={c.id} className="px-3 py-3 text-left text-xs font-semibold text-foreground">
+              <th
+                key={c.id}
+                className="px-3 py-3 text-left text-xs font-semibold text-foreground"
+              >
                 <div className="min-w-[220px]">
                   <div className="font-semibold">{c.name}</div>
                   {c.base?.contract_id && (
-                    <div className="mt-1 text-[11px] text-muted-foreground font-mono">{c.base.contract_id}</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground font-mono">
+                      {c.base.contract_id}
+                    </div>
                   )}
                 </div>
               </th>
@@ -42,7 +53,7 @@ export default function ComparisonTable({ contracts, metrics, tones }: Props) {
               values={contracts.map((c) => ({
                 contractId: c.id,
                 display: m.getDisplayValue(c),
-                tone: tones[m.key]?.[c.id] ?? 'neutral',
+                tone: tones[m.key]?.[c.id] ?? "neutral",
               }))}
             />
           ))}
@@ -51,4 +62,3 @@ export default function ComparisonTable({ contracts, metrics, tones }: Props) {
     </div>
   );
 }
-

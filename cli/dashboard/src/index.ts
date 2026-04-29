@@ -11,7 +11,10 @@ type DashboardOptions = {
 
 const program = new Command();
 
-program.name("soroban-registry").description("Soroban-Registry CLI dashboard").version("0.1.0");
+program
+  .name("soroban-registry")
+  .description("Soroban-Registry CLI dashboard")
+  .version("0.1.0");
 
 program
   .command("dashboard")
@@ -30,7 +33,7 @@ program
     await runDashboard({
       refreshRateMs,
       network: opts.network,
-      category: opts.category
+      category: opts.category,
     });
   });
 
@@ -39,4 +42,3 @@ program.parseAsync(process.argv).catch((err: unknown) => {
   process.stderr.write(`${message}\n`);
   process.exitCode = 1;
 });
-

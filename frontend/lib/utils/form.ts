@@ -3,7 +3,7 @@
  * Provides base styling classes and utilities for form controls
  */
 
-import { FORM_INPUT, FORM_TEXTAREA, FORM_SELECT } from '@/constants/tailwind';
+import { FORM_INPUT, FORM_TEXTAREA, FORM_SELECT } from "@/constants/tailwind";
 
 /**
  * Get the base form control ID
@@ -11,7 +11,7 @@ import { FORM_INPUT, FORM_TEXTAREA, FORM_SELECT } from '@/constants/tailwind';
  */
 export function getFormControlId(
   id: string | undefined,
-  name: string | undefined
+  name: string | undefined,
 ): string | undefined {
   return id || name;
 }
@@ -27,7 +27,9 @@ export function getInputClassName(additionalClass?: string): string {
  * Build className for form textarea control
  */
 export function getTextareaClassName(additionalClass?: string): string {
-  return additionalClass ? `${FORM_TEXTAREA} ${additionalClass}` : FORM_TEXTAREA;
+  return additionalClass
+    ? `${FORM_TEXTAREA} ${additionalClass}`
+    : FORM_TEXTAREA;
 }
 
 /**
@@ -40,6 +42,9 @@ export function getSelectClassName(additionalClass?: string): string {
 /**
  * Get aria-describedby value for form error
  */
-export function getAriaDescribedBy(id: string | undefined, hasError: boolean): string | undefined {
+export function getAriaDescribedBy(
+  id: string | undefined,
+  hasError: boolean,
+): string | undefined {
   return hasError && id ? `${id}-error` : undefined;
 }

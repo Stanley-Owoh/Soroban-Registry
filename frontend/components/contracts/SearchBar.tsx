@@ -1,8 +1,9 @@
-﻿'use client';
+"use client";
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, X } from 'lucide-react';
-import { api, SearchSuggestion } from '@/lib/api';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Search, X } from "lucide-react";
+import type { SearchSuggestion } from "@/types";
+import { api } from "@/lib/api";
 
 interface SearchBarProps {
   value: string;
@@ -15,36 +16,37 @@ interface SearchBarProps {
 type MenuItem = {
   text: string;
   kind: string;
-  source: 'recent' | 'suggestion';
+  source: "recent" | "suggestion";
   score: number;
 };
 
-const RECENT_SEARCH_KEY = 'contract-search-recent';
+const RECENT_SEARCH_KEY = "contract-search-recent";
 const MAX_RECENT_SEARCHES = 5;
 const SEARCH_HINTS = [
-  'Search by contract name, category, creator, or tag.',  'Try "DeFi", "NFT", "token", or a publisher address.',
-  'Advanced: use tag:yield and OR (e.g. token OR bridge).',
-  'Use the keyboard arrows to navigate suggestions.',
+  "Search by contract name, category, creator, or tag.",
+  'Try "DeFi", "NFT", "token", or a publisher address.',
+  "Advanced: use tag:yield and OR (e.g. token OR bridge).",
+  "Use the keyboard arrows to navigate suggestions.",
 ];
 
 const SUGGESTION_LABELS: Record<string, string> = {
-  contract: 'Name',
-  category: 'Category',
-  publisher: 'Creator',
-  creator: 'Creator',
-  tag: 'Tag',
-  recent: 'Recent search',
-  default: 'Suggestion',
+  contract: "Name",
+  category: "Category",
+  publisher: "Creator",
+  creator: "Creator",
+  tag: "Tag",
+  recent: "Recent search",
+  default: "Suggestion",
 };
 
 function loadRecentSearches(): string[] {
-  if (typeof window === 'undefined') return [];
+  if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(RECENT_SEARCH_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     if (Array.isArray(parsed)) {
       return parsed
-        .filter((value) => typeof value === 'string' && value.trim())
+        .filter((value) => typeof value === "string" && value.trim())
         .slice(0, MAX_RECENT_SEARCHES);
     }
   } catch {
@@ -55,7 +57,7 @@ function loadRecentSearches(): string[] {
 }
 
 function saveRecentSearch(query: string): string[] {
-  if (typeof window === 'undefined') return [];
+  if (typeof window === "undefined") return [];
   const trimmed = query.trim();
   if (!trimmed) return [];
 
@@ -77,8 +79,8 @@ function saveRecentSearch(query: string): string[] {
 
 function highlightMatch(text: string, query: string) {
   if (!query) return text;
-  const escaped = query.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
-  const regex = new RegExp(`(${escaped})`, 'i');
+  const escaped = query.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&");
+  const regex = new RegExp(`(${escaped})`, "i");
   const lowerQuery = query.toLowerCase();
 
   return text.split(regex).map((fragment, index) =>
@@ -97,7 +99,7 @@ export function SearchBar({
   onChange,
   onClear,
   onCommit,
-  placeholder = 'Search contracts by name, category, or tag...',
+  placeholder = "Search contracts by name, category, or tag...",
 }: SearchBarProps) {
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -163,14 +165,17 @@ export function SearchBar({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
         setHighlightedIndex(-1);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const menuItems = useMemo<MenuItem[]>(() => {
@@ -178,15 +183,15 @@ export function SearchBar({
       return suggestions.map((suggestion) => ({
         text: suggestion.text,
         kind: suggestion.kind,
-        source: 'suggestion',
+        source: "suggestion",
         score: suggestion.score,
       }));
     }
 
     return recentSearches.map((text) => ({
       text,
-      kind: 'recent',
-      source: 'recent',
+      kind: "recent",
+      source: "recent",
       score: 1,
     }));
   }, [recentSearches, suggestions, value]);
@@ -202,23 +207,27 @@ export function SearchBar({
   };
 
   const onInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'ArrowDown') {
+    if (event.key === "ArrowDown") {
       event.preventDefault();
       if (menuItems.length === 0) return;
       setIsOpen(true);
-      setHighlightedIndex((current) => (current < menuItems.length - 1 ? current + 1 : 0));
+      setHighlightedIndex((current) =>
+        current < menuItems.length - 1 ? current + 1 : 0,
+      );
       return;
     }
 
-    if (event.key === 'ArrowUp') {
+    if (event.key === "ArrowUp") {
       event.preventDefault();
       if (menuItems.length === 0) return;
       setIsOpen(true);
-      setHighlightedIndex((current) => (current > 0 ? current - 1 : menuItems.length - 1));
+      setHighlightedIndex((current) =>
+        current > 0 ? current - 1 : menuItems.length - 1,
+      );
       return;
     }
 
-    if (event.key === 'Enter') {
+    if (event.key === "Enter") {
       if (isOpen && highlightedIndex >= 0 && menuItems[highlightedIndex]) {
         event.preventDefault();
         commitSearch(menuItems[highlightedIndex].text);
@@ -230,15 +239,15 @@ export function SearchBar({
       return;
     }
 
-    if (event.key === 'Escape') {
+    if (event.key === "Escape") {
       setIsOpen(false);
       setHighlightedIndex(-1);
     }
   };
 
   const hintText = value.trim()
-    ? 'Matching terms are highlighted and suggestions update as you type.'
-    : 'Type a contract name, category, creator, or tag to get instant results.';
+    ? "Matching terms are highlighted and suggestions update as you type."
+    : "Type a contract name, category, creator, or tag to get instant results.";
 
   return (
     <div ref={containerRef} className="relative">
@@ -265,7 +274,9 @@ export function SearchBar({
           aria-autocomplete="list"
           aria-expanded={isOpen}
           aria-activedescendant={
-            highlightedIndex >= 0 ? `search-suggestion-${highlightedIndex}` : undefined
+            highlightedIndex >= 0
+              ? `search-suggestion-${highlightedIndex}`
+              : undefined
           }
           className="w-full pl-12 pr-12 py-4 rounded-xl border border-border bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary shadow-lg"
         />
@@ -287,7 +298,10 @@ export function SearchBar({
 
       <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
         {SEARCH_HINTS.map((hint) => (
-          <span key={hint} className="rounded-full border border-border bg-card px-3 py-1">
+          <span
+            key={hint}
+            className="rounded-full border border-border bg-card px-3 py-1"
+          >
             {hint}
           </span>
         ))}
@@ -314,7 +328,7 @@ export function SearchBar({
                   }}
                   onMouseEnter={() => setHighlightedIndex(index)}
                   className={`cursor-pointer px-4 py-3 hover:bg-primary/10 transition-colors ${
-                    highlightedIndex === index ? 'bg-primary/10' : ''
+                    highlightedIndex === index ? "bg-primary/10" : ""
                   }`}
                 >
                   <div className="flex items-center justify-between gap-3">
@@ -322,7 +336,8 @@ export function SearchBar({
                       {highlightMatch(item.text, value.trim())}
                     </span>
                     <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                      {SUGGESTION_LABELS[item.kind] ?? SUGGESTION_LABELS.default}
+                      {SUGGESTION_LABELS[item.kind] ??
+                        SUGGESTION_LABELS.default}
                     </span>
                   </div>
                 </li>
@@ -331,8 +346,8 @@ export function SearchBar({
           ) : (
             <div className="px-4 py-4 text-sm text-muted-foreground">
               {hasError
-                ? 'Unable to load suggestions. Try again or press Enter to search.'
-                : 'No suggestions found. Press Enter to search with your current query.'}
+                ? "Unable to load suggestions. Try again or press Enter to search."
+                : "No suggestions found. Press Enter to search with your current query."}
             </div>
           )}
         </div>
@@ -340,4 +355,3 @@ export function SearchBar({
     </div>
   );
 }
-

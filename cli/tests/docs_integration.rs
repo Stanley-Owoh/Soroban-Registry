@@ -51,7 +51,7 @@ fn test_docs_help() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     // Ensure subcommands appear in the help output
     assert!(stdout.contains("tutorial"));
     assert!(stdout.contains("online"));

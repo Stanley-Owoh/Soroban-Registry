@@ -14,13 +14,18 @@ export class RegistryWsClient {
   private ws: WebSocket | undefined;
   private pingTimer: NodeJS.Timeout | undefined;
   private reconnectTimer: NodeJS.Timeout | undefined;
-  private listeners: { [K in keyof WsClientEvents]?: Array<WsClientEvents[K]> } = {};
+  private listeners: {
+    [K in keyof WsClientEvents]?: Array<WsClientEvents[K]>;
+  } = {};
   private attempt = 0;
   private lastPingAt: number | undefined;
 
   constructor(private readonly wsUrl: string) {}
 
-  on<K extends keyof WsClientEvents>(event: K, listener: WsClientEvents[K]): () => void {
+  on<K extends keyof WsClientEvents>(
+    event: K,
+    listener: WsClientEvents[K],
+  ): () => void {
     const arr = (this.listeners[event] ??= []);
     arr.push(listener);
     return () => {
@@ -93,7 +98,10 @@ export class RegistryWsClient {
     });
   }
 
-  scheduleReconnect(params: { filters: DashboardFilters; lastError?: string }): { attempt: number; nextRetryAt: number } {
+  scheduleReconnect(params: {
+    filters: DashboardFilters;
+    lastError?: string;
+  }): { attempt: number; nextRetryAt: number } {
     this.clearReconnect();
     const attempt = Math.max(1, this.attempt + 1);
     const delay = computeBackoffDelayMs(attempt);
@@ -126,7 +134,10 @@ export class RegistryWsClient {
     this.reconnectTimer = undefined;
   }
 
-  private emit<K extends keyof WsClientEvents>(event: K, payload: Parameters<WsClientEvents[K]>[0] | undefined): void {
+  private emit<K extends keyof WsClientEvents>(
+    event: K,
+    payload: Parameters<WsClientEvents[K]>[0] | undefined,
+  ): void {
     const list = this.listeners[event] ?? [];
     for (const l of list) {
       (l as any)(payload);
@@ -150,4 +161,3 @@ function tryParseJson(data: WebSocket.RawData): unknown {
     return undefined;
   }
 }
-

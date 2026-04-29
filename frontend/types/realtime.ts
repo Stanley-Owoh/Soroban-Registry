@@ -8,7 +8,11 @@ export interface ContractDeploymentEvent {
 
 export interface ContractUpdateEvent {
   contractId: string;
-  updateType: 'verification_status' | 'security_audit' | 'deprecation' | 'breaking_change';
+  updateType:
+    | "verification_status"
+    | "security_audit"
+    | "deprecation"
+    | "breaking_change";
   details: Record<string, unknown>;
   timestamp: string;
 }

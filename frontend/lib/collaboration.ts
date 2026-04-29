@@ -28,7 +28,12 @@ export interface CollaborativeDocument {
   revision: number;
   cursors: CollaboratorCursor[];
   comments: CollaborativeComment[];
-  history: Array<{ revision: number; userId: string; summary: string; createdAt: string }>;
+  history: Array<{
+    revision: number;
+    userId: string;
+    summary: string;
+    createdAt: string;
+  }>;
 }
 
 export interface EditResult {
@@ -37,7 +42,9 @@ export interface EditResult {
   resolution: string;
 }
 
-export function createCollaborativeDocument(source: string): CollaborativeDocument {
+export function createCollaborativeDocument(
+  source: string,
+): CollaborativeDocument {
   return {
     source,
     revision: 1,
@@ -56,7 +63,14 @@ export function createCollaborativeDocument(source: string): CollaborativeDocume
         resolved: false,
       },
     ],
-    history: [{ revision: 1, userId: "system", summary: "Workspace opened", createdAt: "2026-04-23T00:00:00.000Z" }],
+    history: [
+      {
+        revision: 1,
+        userId: "system",
+        summary: "Workspace opened",
+        createdAt: "2026-04-23T00:00:00.000Z",
+      },
+    ],
   };
 }
 
@@ -82,7 +96,9 @@ export function applyCollaborativeEdit(
         : cursor,
     ),
     comments: document.comments.map((comment) =>
-      comment.line * 80 > safeFrom ? { ...comment, line: Math.max(1, comment.line + Math.sign(delta)) } : comment,
+      comment.line * 80 > safeFrom
+        ? { ...comment, line: Math.max(1, comment.line + Math.sign(delta)) }
+        : comment,
     ),
     history: [
       ...document.history,

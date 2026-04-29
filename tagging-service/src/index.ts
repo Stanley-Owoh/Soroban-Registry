@@ -9,10 +9,10 @@ app.use(express.json());
 app.use(tagRouter);
 
 app.get("/health", (_req, res) => {
-    res.json({ status: "ok", service: "tagging-service" });
+  res.json({ status: "ok", service: "tagging-service" });
 });
 
 app.listen(PORT, () => {
-    console.log(`tagging-service running on port ${PORT}`);
-    startCronJobs();
+  console.log(`tagging-service running on port ${PORT}`);
+  startCronJobs();
 });

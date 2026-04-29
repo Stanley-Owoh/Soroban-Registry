@@ -1,7 +1,12 @@
-import type { ComparableContract } from '@/utils/comparison';
+import type { ComparableContract } from "@/utils/comparison";
 
 function escapeCsvCell(value: string) {
-  if (value.includes('"') || value.includes(',') || value.includes('\n') || value.includes('\r')) {
+  if (
+    value.includes('"') ||
+    value.includes(",") ||
+    value.includes("\n") ||
+    value.includes("\r")
+  ) {
     return `"${value.replaceAll('"', '""')}"`;
   }
   return value;
@@ -15,21 +20,28 @@ export function buildComparisonCsv(
     getValue: (c: ComparableContract) => string | number | boolean;
   }>,
 ) {
-  const header = ['Attribute', ...contracts.map((c) => c.name)];
+  const header = ["Attribute", ...contracts.map((c) => c.name)];
   const rows: string[][] = [header];
 
   for (const metric of metrics) {
-    const row = [metric.label, ...contracts.map((c) => String(metric.getValue(c)))];
+    const row = [
+      metric.label,
+      ...contracts.map((c) => String(metric.getValue(c))),
+    ];
     rows.push(row);
   }
 
-  return rows.map((r) => r.map(escapeCsvCell).join(',')).join('\n');
+  return rows.map((r) => r.map(escapeCsvCell).join(",")).join("\n");
 }
 
-export function downloadTextFile(filename: string, content: string, mimeType: string) {
+export function downloadTextFile(
+  filename: string,
+  content: string,
+  mimeType: string,
+) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
@@ -46,11 +58,14 @@ export function exportComparisonToCsv(
 ) {
   const csv = buildComparisonCsv(contracts, metrics);
   const filename = `contracts-comparison-${new Date().toISOString().slice(0, 10)}.csv`;
-  downloadTextFile(filename, csv, 'text/csv;charset=utf-8');
+  downloadTextFile(filename, csv, "text/csv;charset=utf-8");
 }
 
-export function exportComparisonToPdf(contracts: ComparableContract[], rows: Array<{ label: string; values: string[] }>) {
-  const title = 'Soroban Registry - Contract Comparison';
+export function exportComparisonToPdf(
+  contracts: ComparableContract[],
+  rows: Array<{ label: string; values: string[] }>,
+) {
+  const title = "Soroban Registry - Contract Comparison";
   const html = `<!doctype html>
   <html>
     <head>
@@ -68,12 +83,12 @@ export function exportComparisonToPdf(contracts: ComparableContract[], rows: Arr
     </head>
     <body>
       <h1>${title}</h1>
-      <p>Compared: ${contracts.map((c) => c.name).join(' | ')}</p>
+      <p>Compared: ${contracts.map((c) => c.name).join(" | ")}</p>
       <table>
         <thead>
           <tr>
             <th>Attribute</th>
-            ${contracts.map((c) => `<th>${c.name}</th>`).join('')}
+            ${contracts.map((c) => `<th>${c.name}</th>`).join("")}
           </tr>
         </thead>
         <tbody>
@@ -81,16 +96,16 @@ export function exportComparisonToPdf(contracts: ComparableContract[], rows: Arr
             .map(
               (r) => `<tr>
                 <td>${r.label}</td>
-                ${r.values.map((v) => `<td>${escapeHtml(String(v))}</td>`).join('')}
+                ${r.values.map((v) => `<td>${escapeHtml(String(v))}</td>`).join("")}
               </tr>`,
             )
-            .join('')}
+            .join("")}
         </tbody>
       </table>
     </body>
   </html>`;
 
-  const win = window.open('', '_blank', 'noopener,noreferrer');
+  const win = window.open("", "_blank", "noopener,noreferrer");
   if (!win) return false;
   win.document.open();
   win.document.write(html);
@@ -101,19 +116,21 @@ export function exportComparisonToPdf(contracts: ComparableContract[], rows: Arr
     win.print();
   };
 
-  if (win.document.readyState === 'complete') {
+  if (win.document.readyState === "complete") {
     setTimeout(finalize, 50);
   } else {
-    win.addEventListener('load', () => setTimeout(finalize, 50), { once: true });
+    win.addEventListener("load", () => setTimeout(finalize, 50), {
+      once: true,
+    });
   }
   return true;
 }
 
 function escapeHtml(value: string) {
   return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }

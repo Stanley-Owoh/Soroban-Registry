@@ -38,7 +38,9 @@ function ApiDocsContent() {
         <Navbar />
         <div className="max-w-4xl mx-auto px-4 py-10">
           <div className="rounded-2xl border border-border bg-card p-6">
-            <div className="text-sm font-semibold text-foreground">Missing contract id</div>
+            <div className="text-sm font-semibold text-foreground">
+              Missing contract id
+            </div>
             <div className="mt-1 text-sm text-muted-foreground">
               Open API docs from a contract page or include the id in the URL.
             </div>

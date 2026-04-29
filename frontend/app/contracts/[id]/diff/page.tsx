@@ -6,8 +6,21 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import Navbar from "@/components/Navbar";
-import ContractDiffViewer from "@/components/ContractDiffViewer";
+import dynamic from "next/dynamic";
 import { ArrowLeft, GitCompare } from "lucide-react";
+
+const ContractDiffViewer = dynamic(
+  () => import("@/components/ContractDiffViewer"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-2xl border border-border bg-card p-6 animate-pulse">
+        <div className="h-5 w-40 rounded bg-border mb-3" />
+        <div className="h-3 w-64 rounded bg-border" />
+      </div>
+    ),
+  },
+);
 
 function DiffPageContent() {
   const params = useParams<{ id?: string | string[] }>();
@@ -40,7 +53,9 @@ function DiffPageContent() {
           {contract && (
             <>
               <span className="text-muted-foreground">/</span>
-              <span className="font-semibold text-foreground">{contract.name}</span>
+              <span className="font-semibold text-foreground">
+                {contract.name}
+              </span>
             </>
           )}
           <span className="text-muted-foreground">/</span>
@@ -53,10 +68,13 @@ function DiffPageContent() {
         {/* Page heading */}
         <div className="mb-6">
           <h1 className="text-xl font-bold text-foreground">
-            {contract ? `${contract.name} — Version Diff` : "Contract Version Diff"}
+            {contract
+              ? `${contract.name} — Version Diff`
+              : "Contract Version Diff"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Select two versions to compare source code changes side-by-side or in unified view.
+            Select two versions to compare source code changes side-by-side or
+            in unified view.
           </p>
         </div>
 

@@ -32,7 +32,10 @@ function makeContractId(): string {
   return `C${suffix}`.toUpperCase();
 }
 
-function passesFilters(ev: { network: string; category?: string; contractId: string }, filters: ClientFilters): boolean {
+function passesFilters(
+  ev: { network: string; category?: string; contractId: string },
+  filters: ClientFilters,
+): boolean {
   if (filters.network && ev.network !== filters.network) return false;
   if (filters.category && ev.category !== filters.category) return false;
   if (filters.query) {
@@ -49,7 +52,11 @@ wss.on("connection", (ws) => {
     const msg = safeJson(data.toString());
     if (!msg || typeof msg.type !== "string") return;
 
-    if (msg.type === "subscribe" && msg.payload && typeof msg.payload === "object") {
+    if (
+      msg.type === "subscribe" &&
+      msg.payload &&
+      typeof msg.payload === "object"
+    ) {
       const next = (msg.payload as any).filters;
       if (next && typeof next === "object") {
         clients.set(ws, { filters: sanitizeFilters(next) });
@@ -57,7 +64,11 @@ wss.on("connection", (ws) => {
       return;
     }
 
-    if (msg.type === "set_filters" && msg.payload && typeof msg.payload === "object") {
+    if (
+      msg.type === "set_filters" &&
+      msg.payload &&
+      typeof msg.payload === "object"
+    ) {
       const next = (msg.payload as any).filters;
       if (next && typeof next === "object") {
         clients.set(ws, { filters: sanitizeFilters(next) });
@@ -112,9 +123,9 @@ function emitDeployment(ws: any): void {
         network,
         category,
         publisher: `G${Math.random().toString(36).slice(2, 10).toUpperCase()}`,
-        timestamp: nowIso()
-      }
-    })
+        timestamp: nowIso(),
+      },
+    }),
   );
 }
 
@@ -133,9 +144,9 @@ function emitInteraction(ws: any): void {
         id: randomUUID(),
         contractId,
         network,
-        timestamp: nowIso()
-      }
-    })
+        timestamp: nowIso(),
+      },
+    }),
   );
 }
 
@@ -151,9 +162,9 @@ function emitNetworkStatus(ws: any): void {
         network,
         status: "connected",
         latencyMs,
-        timestamp: nowIso()
-      }
-    })
+        timestamp: nowIso(),
+      },
+    }),
   );
 }
 
@@ -167,9 +178,10 @@ function safeJson(text: string): any | undefined {
 
 function sanitizeFilters(input: any): ClientFilters {
   const out: ClientFilters = {};
-  if (typeof input.network === "string") out.network = input.network || undefined;
-  if (typeof input.category === "string") out.category = input.category || undefined;
+  if (typeof input.network === "string")
+    out.network = input.network || undefined;
+  if (typeof input.category === "string")
+    out.category = input.category || undefined;
   if (typeof input.query === "string") out.query = input.query || undefined;
   return out;
 }
-

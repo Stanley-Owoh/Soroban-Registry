@@ -37,7 +37,10 @@ fn get_binary_path() -> PathBuf {
         return workspace_target;
     }
 
-    panic!("Could not find {} binary. Run `cargo build` first.", name_hyphen)
+    panic!(
+        "Could not find {} binary. Run `cargo build` first.",
+        name_hyphen
+    )
 }
 
 #[test]
