@@ -217,11 +217,11 @@ export default function ActivityFeed() {
                             href={`/contracts/${item.contract_id}`}
                             className="font-medium text-primary hover:underline flex items-center gap-1"
                           >
-                            {item.metadata?.name || formatShortenedText(item.contract_id, 10, '...')}
+                            {item.metadata?.name ? String(item.metadata.name) : formatShortenedText(item.contract_id, 10, '...')}
                             <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </Link>
                           {item.metadata?.version && (
-                            <span className="text-muted-foreground">v{item.metadata.version}</span>
+                            <span className="text-muted-foreground">v{String(item.metadata.version)}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
@@ -248,7 +248,7 @@ export default function ActivityFeed() {
 
                       {item.event_type === 'contract_updated' && item.metadata?.update_type && (
                         <div className="mt-1 text-xs px-2 py-1 rounded bg-muted/50 border border-border inline-block w-fit">
-                          <span className="font-medium">{t('activityFeed.type')}:</span> {item.metadata.update_type}
+                          <span className="font-medium">{t('activityFeed.type')}:</span> {String(item.metadata.update_type)}
                         </div>
                       )}
                     </div>
