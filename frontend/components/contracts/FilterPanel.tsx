@@ -247,12 +247,53 @@ export function FilterPanel({
   activeFilterCount,
   onResetAll,
 }: FilterPanelProps) {
+<<<<<<< HEAD
+  const [expandedSections, setExpandedSections] = React.useState<Record<string, boolean>>({
+    categories: true,
+    networks: true,
+    languages: true,
+    other: true,
+  });
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((current) => ({
+      ...current,
+      [section]: !current[section],
+    }));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Filters</h3>
+        {activeFilterCount > 0 && (
+          <button
+            type="button"
+            onClick={onResetAll}
+            className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors"
+          >
+            <RotateCcw className="w-3 h-3" />
+            Reset all
+          </button>
+        )}
+      </div>
+
+      <CheckboxGroup
+        title="Network"
+        options={networks.map((n) => n.value)}
+        selected={selectedNetworks}
+        onToggle={onToggleNetwork}
+      />
+
+      <div className="space-y-3">
+=======
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Active filters: {activeFilterCount}
         </p>
+>>>>>>> main
         <button
           type="button"
           onClick={onResetAll}
@@ -326,6 +367,16 @@ export function FilterPanel({
         Verified only
       </button>
 
+<<<<<<< HEAD
+      {languages.length > 0 && (
+        <CheckboxGroup
+          title="Languages"
+          options={languages}
+          selected={selectedLanguages}
+          onToggle={onToggleLanguage}
+        />
+      )}
+=======
       <button
         type="button"
         role="checkbox"
@@ -346,6 +397,7 @@ export function FilterPanel({
         </div>
         Favorites only
       </button>
+>>>>>>> main
     </div>
   );
 }

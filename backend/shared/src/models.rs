@@ -1173,6 +1173,126 @@ pub struct ContractExportStatusResponse {
     pub error: Option<String>,
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// BULK IMPORT TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Single contract record for bulk import
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ContractImportRecord {
+    pub contract_id: String,
+    pub wasm_hash: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub publisher_address: String,
+    pub network: Network,
+    pub category: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub is_verified: Option<bool>,
+    pub maturity: Option<String>,
+    pub visibility: Option<String>,
+    pub organization_id: Option<Uuid>,
+    pub network_configs: Option<serde_json::Value>,
+    pub versions: Option<Vec<ContractImportVersion>>,
+}
+
+/// Version information for import
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ContractImportVersion {
+    pub version: String,
+    pub wasm_hash: String,
+    pub source_url: Option<String>,
+    pub commit_hash: Option<String>,
+    pub release_notes: Option<String>,
+}
+
+/// Request to import contracts in bulk
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ContractImportRequest {
+    pub contracts: Vec<ContractImportRecord>,
+    #[serde(default)]
+    pub fail_safe: bool,
+    #[serde(default)]
+    pub async_mode: Option<bool>,
+    #[serde(default)]
+    pub skip_existing: Option<bool>,
+}
+
+/// Result of a single contract import
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ContractImportItemResult {
+    pub index: usize,
+    pub contract_id: String,
+    pub success: bool,
+    pub imported_id: Option<Uuid>,
+    pub error: Option<String>,
+}
+
+/// Response for synchronous bulk import
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ContractImportResponse {
+    pub total_count: usize,
+    pub imported_count: usize,
+    pub failed_count: usize,
+    pub results: Vec<ContractImportItemResult>,
+    pub errors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ContractImportJobStatus {
+    Pending,
+    Processing,
+    Completed,
+    Failed,
+    Partial,
+}
+
+/// Response when import is accepted for async processing
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ContractImportAcceptedResponse {
+    pub job_id: Uuid,
+    pub status: ContractImportJobStatus,
+    pub status_url: String,
+    pub total_count: i64,
+    pub requested_at: DateTime<Utc>,
+    pub fail_safe: bool,
+}
+
+/// Status response for an async import job
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ContractImportStatusResponse {
+    pub job_id: Uuid,
+    pub status: ContractImportJobStatus,
+    pub status_url: String,
+    pub total_count: i64,
+    pub processed_count: i64,
+    pub imported_count: i64,
+    pub failed_count: i64,
+    pub requested_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub fail_safe: bool,
+    pub error: Option<String>,
+    pub results: Option<Vec<ContractImportItemResult>>,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BULK EXPORT GET REQUEST (Query params)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Query parameters for GET /contracts/export
+#[derive(Debug, Clone, Default, Serialize, Deserialize, utoipa::IntoParams)]
+pub struct ContractExportQueryParams {
+    pub format: Option<ContractExportFormat>,
+    pub networks: Option<Vec<Network>>,
+    pub category: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub verified_only: Option<bool>,
+    pub maturity: Option<String>,
+    pub query: Option<String>,
+    pub async_mode: Option<bool>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub enum FieldOperator {
     Eq,

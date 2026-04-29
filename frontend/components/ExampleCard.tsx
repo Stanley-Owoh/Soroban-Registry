@@ -47,12 +47,13 @@ export default function ExampleCard({ example }: ExampleCardProps) {
     "#e5e7eb";
 
   useEffect(() => {
-    setAvatarLoadError(false);
+    requestAnimationFrame(() => {
+      setAvatarLoadError(false);
 
-    if (!avatarSrc) {
-      setAvatarPlaceholder(null);
-      return;
-    }
+      if (!avatarSrc) {
+        setAvatarPlaceholder(null);
+        return;
+      }
 
     if (avatarBlurHash) {
       setAvatarPlaceholder(
@@ -65,7 +66,8 @@ export default function ExampleCard({ example }: ExampleCardProps) {
       return;
     }
 
-    setAvatarPlaceholder(generateSolidPlaceholder(avatarFallbackColor));
+      setAvatarPlaceholder(generateSolidPlaceholder(avatarFallbackColor));
+    });
   }, [avatarSrc, avatarBlurHash, avatarFallbackColor]);
 
   const handleRate = async (val: number) => {

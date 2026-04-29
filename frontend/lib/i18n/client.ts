@@ -31,10 +31,21 @@ i18next
     preload: runsOnServerSide ? languages : [],
   });
 
+<<<<<<< HEAD
+interface UseTranslationOptions {
+  keyPrefix?: string;
+}
+
+export function useTranslation(lng: string, ns = 'common', options: UseTranslationOptions = {}) {
+  const [cookies, setCookie] = useCookies([cookieName])
+  const ret = useTranslationOrg(ns, options)
+  const { i18n } = ret
+=======
 export function useTranslation(lng: string, ns = "common", options: any = {}) {
   const [cookies, setCookie] = useCookies([cookieName]);
   const ret = useTranslationOrg(ns, options);
   const { i18n } = ret;
+>>>>>>> main
   if (runsOnServerSide && lng && i18n.resolvedLanguage !== lng) {
     i18n.changeLanguage(lng);
   } else {
@@ -42,9 +53,16 @@ export function useTranslation(lng: string, ns = "common", options: any = {}) {
     const [activeLng, setActiveLng] = useState(i18n.resolvedLanguage);
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useEffect(() => {
+<<<<<<< HEAD
+      if (activeLng === i18n.resolvedLanguage) return
+      // Use requestAnimationFrame to avoid synchronous setState during render
+      requestAnimationFrame(() => setActiveLng(i18n.resolvedLanguage))
+    }, [activeLng, i18n.resolvedLanguage])
+=======
       if (activeLng === i18n.resolvedLanguage) return;
       setActiveLng(i18n.resolvedLanguage);
     }, [activeLng, i18n.resolvedLanguage]);
+>>>>>>> main
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useEffect(() => {
       if (!lng || i18n.resolvedLanguage === lng) return;

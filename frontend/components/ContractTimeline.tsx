@@ -116,7 +116,7 @@ export default function ContractTimeline({
 
           <select
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as any)}
+            onChange={(e) => setTypeFilter(e.target.value as AnalyticsEventType | 'all')}
             className="px-3 py-2 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-primary/20 outline-none"
           >
             <option value="all">All Events</option>
@@ -159,6 +159,10 @@ export default function ContractTimeline({
       ) : filteredEvents.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center bg-muted/30 rounded-2xl border border-dashed border-border">
           <Calendar className="w-12 h-12 text-muted-foreground/30 mb-4" />
+<<<<<<< HEAD
+          <h4 className="text-lg font-medium text-muted-foreground">No events found</h4>
+          <p className="text-sm text-muted-foreground/60 max-w-xs mx-auto">Try adjusting your filters or search term to find what you&apos;re looking for.</p>
+=======
           <h4 className="text-lg font-medium text-muted-foreground">
             No events found
           </h4>
@@ -166,6 +170,7 @@ export default function ContractTimeline({
             Try adjusting your filters or search term to find what you're
             looking for.
           </p>
+>>>>>>> main
         </div>
       ) : (
         <div className="relative pl-8 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-primary/50 before:to-transparent">

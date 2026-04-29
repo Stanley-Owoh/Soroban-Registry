@@ -1,15 +1,9 @@
 "use client";
 
-import {
-  useState,
-  useRef,
-  useEffect,
-  useCallback,
-  useImperativeHandle,
-} from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import * as d3 from "d3";
 import { useTheme } from "@/hooks/useTheme";
-import { GraphNode, GraphEdge } from "@/types";
+import type { GraphNode, GraphEdge } from "@/lib/api";
 
 export interface SimNode extends d3.SimulationNodeDatum {
   id: string;
@@ -37,11 +31,10 @@ export interface EdgeTooltipState {
 }
 
 export function useDependencyGraph(
-  nodes: GraphNode[],
+  _nodes: GraphNode[],
   edges: GraphEdge[],
-  dependentCounts: Map<string, number>,
+  _dependentCounts: Map<string, number>,
   selectedNode: GraphNode | null,
-  onNodeClick?: (node: GraphNode | null) => void,
 ) {
   const { resolvedTheme } = useTheme();
   const svgRef = useRef<SVGSVGElement>(null);
@@ -55,10 +48,6 @@ export function useDependencyGraph(
 
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const [edgeTooltip, setEdgeTooltip] = useState<EdgeTooltipState | null>(null);
-  const [highlightedChain, setHighlightedChain] = useState<{
-    nodes: Set<string>;
-    edges: Set<string>;
-  } | null>(null);
   const pinnedRef = useRef<Set<string>>(new Set());
 
   const computeChain = useCallback(
@@ -70,10 +59,8 @@ export function useDependencyGraph(
       const inEdges = new Map<string, string[]>();
 
       edges.forEach((e) => {
-        const src =
-          typeof e.source === "string" ? e.source : (e.source as any).id;
-        const tgt =
-          typeof e.target === "string" ? e.target : (e.target as any).id;
+        const src = e.source;
+        const tgt = e.target;
 
         if (!outEdges.has(src)) outEdges.set(src, []);
         if (!inEdges.has(tgt)) inEdges.set(tgt, []);
@@ -114,13 +101,10 @@ export function useDependencyGraph(
     [edges],
   );
 
-  useEffect(() => {
-    if (selectedNode) {
-      setHighlightedChain(computeChain(selectedNode.id));
-    } else {
-      setHighlightedChain(null);
-    }
-  }, [selectedNode, computeChain]);
+  const highlightedChain = useMemo(
+    () => (selectedNode ? computeChain(selectedNode.id) : null),
+    [selectedNode, computeChain],
+  );
 
   return {
     svgRef,

@@ -28,7 +28,7 @@ export function useStats(period: TimePeriod): UseStatsReturn {
   }, [period]);
 
   useEffect(() => {
-    loadData();
+    requestAnimationFrame(() => void loadData());
 
     const intervalId = setInterval(() => {
       // Skip polling when the tab is not visible

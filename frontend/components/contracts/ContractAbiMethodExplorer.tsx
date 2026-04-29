@@ -399,7 +399,6 @@ function MethodCard({ fn, contractId, searchQuery }: MethodCardProps) {
             </button>
 
             <CodeCopyButton
-              id={`abi-copy-snippet-${fn.name}`}
               onCopy={() =>
                 copySnippet(snippet, {
                   successEventName: "abi_snippet_copied",

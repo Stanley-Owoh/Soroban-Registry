@@ -1,5 +1,22 @@
 "use client";
 
+<<<<<<< HEAD
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import ContractCard from '@/components/ContractCard';
+import ContractCardSkeleton from '@/components/ContractCardSkeleton';
+import LoadingSkeleton from '@/components/LoadingSkeleton';
+import { Search, Package, CheckCircle, Users, ArrowRight, Sparkles, Shield, GitBranch, Upload, Terminal, Github, MessageCircle, BookOpen, Zap } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { useAnalytics } from '@/hooks/useAnalytics';
+import { useTranslation } from '@/lib/i18n/client';
+import Navbar from '@/components/Navbar';
+import ActivityFeed from '@/components/ActivityFeed';
+import { useCopy } from '@/hooks/useCopy';
+import CodeCopyButton from '@/components/CodeCopyButton';
+=======
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import ContractCard from "@/components/ContractCard";
@@ -30,6 +47,7 @@ import ActivityFeed from "@/components/ActivityFeed";
 import { useCopy } from "@/hooks/useCopy";
 import CodeCopyButton from "@/components/CodeCopyButton";
 import { useTranslation } from "@/lib/i18n/client";
+>>>>>>> main
 
 export default function Home() {
   const { t } = useTranslation("common");

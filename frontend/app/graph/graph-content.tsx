@@ -20,7 +20,6 @@ import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { AlertCircle, Sparkles, ExternalLink, X } from "lucide-react";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import type { DependencyGraphHandle } from "@/components/DependencyGraph";
-import { useRouter } from "next/navigation";
 import { useTranslation } from "@/lib/i18n/client";
 
 // Generate synthetic demo data for testing at scale
@@ -167,7 +166,6 @@ export function GraphContent() {
   const [explorationEdges, setExplorationEdges] = useState<GraphEdge[]>([]);
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const graphRef = useRef<DependencyGraphHandle | null>(null);
-  const router = useRouter();
   const { logEvent } = useAnalytics();
 
   // Reset exploration state when mode is toggled off

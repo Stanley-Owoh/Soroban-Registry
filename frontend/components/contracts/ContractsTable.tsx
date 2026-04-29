@@ -139,6 +139,35 @@ export function ContractsTable({
           </div>
         ),
       },
+<<<<<<< HEAD
+    },
+    {
+      id: 'is_verified',
+      accessorKey: 'is_verified',
+      header: 'Status',
+      cell: ({ row }) => (
+        row.original.is_verified ? 
+        <span className="inline-flex items-center gap-1 text-[11px] text-green-500 font-medium"><CheckCircle2 className="w-3 h-3" /> Verified</span> :
+        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-medium">Pending</span>
+      ),
+    },
+    {
+      id: 'deployments',
+      accessorFn: (row: Contract & { deployment_count?: number }) =>
+        typeof row.deployment_count === 'number'
+          ? row.deployment_count
+          : 0,
+      header: 'Deployments',
+      cell: ({ getValue }) => <div className="font-mono text-xs">{getValue() as number}</div>,
+    },
+    {
+      id: 'created_at',
+      accessorKey: 'created_at',
+      header: 'Created',
+      cell: ({ row }) => <div className="text-xs text-muted-foreground whitespace-nowrap">{new Date(row.original.created_at).toLocaleDateString()}</div>,
+    },
+  ], []);
+=======
       {
         id: "category",
         accessorKey: "category",
@@ -213,6 +242,7 @@ export function ContractsTable({
     ],
     [],
   );
+>>>>>>> main
 
   const sortingWrapper: SortingState = useMemo(() => {
     return [{ id: sortByContext(sortBy), desc: sortOrder === "desc" }];

@@ -2,7 +2,7 @@
 use crate::openapi;
 use crate::{
     ab_test_handlers, ai::handlers as ai_handlers, analytics_handlers, auth, auth_handlers,
-    batch_verify_handlers, breaking_changes, canary_handlers, category_handlers,
+    batch_verify_handlers, breaking_changes, bulk_operations_handlers, canary_handlers, category_handlers,
     client_observability_handlers, clone_federation_handlers, compatibility_testing_handlers,
     contract_events, custom_metrics_handlers, deprecation_handlers, error_logging,
     formal_verification_handlers, gas_estimation_handlers, governance_handlers,
@@ -145,11 +145,29 @@ pub fn contract_routes() -> Router<AppState> {
         .route("/api/contracts/tags", get(handlers::list_tags))
         .route(
             "/api/contracts/export",
-            post(handlers::export_contract_metadata),
+            get(bulk_operations_handlers::get_export_contracts)
+                .post(handlers::export_contract_metadata),
         )
         .route(
             "/contracts/export",
-            post(handlers::export_contract_metadata),
+            get(bulk_operations_handlers::get_export_contracts)
+                .post(handlers::export_contract_metadata),
+        )
+        .route(
+            "/api/contracts/import",
+            post(bulk_operations_handlers::import_contracts),
+        )
+        .route(
+            "/contracts/import",
+            post(bulk_operations_handlers::import_contracts),
+        )
+        .route(
+            "/api/contracts/import/:job_id",
+            get(bulk_operations_handlers::get_import_status),
+        )
+        .route(
+            "/contracts/import/:job_id",
+            get(bulk_operations_handlers::get_import_status),
         )
         .route(
             "/api/contracts/export/:job_id",

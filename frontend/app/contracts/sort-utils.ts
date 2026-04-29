@@ -1,7 +1,12 @@
 import type { Contract } from "@/lib/api";
 
+<<<<<<< HEAD
+export type SortBy = 'name' | 'created_at' | 'popularity' | 'rating' | 'relevance' | 'downloads';
+export type SortOrder = 'asc' | 'desc';
+=======
 export type SortBy = "created_at" | "updated_at" | "popularity" | "relevance";
 export type SortOrder = "asc" | "desc";
+>>>>>>> main
 
 export interface SortPreference {
   sort_by: SortBy;
@@ -16,12 +21,21 @@ export const DEFAULT_SORT_PREFERENCE: SortPreference = {
 };
 
 function isSortBy(value: string | null | undefined): value is SortBy {
+<<<<<<< HEAD
+  return value === 'name'
+    || value === 'created_at'
+    || value === 'popularity'
+    || value === 'rating'
+    || value === 'relevance'
+    || value === 'downloads';
+=======
   return (
     value === "created_at" ||
     value === "updated_at" ||
     value === "popularity" ||
     value === "relevance"
   );
+>>>>>>> main
 }
 
 export function normalizeSortBy(
@@ -53,7 +67,7 @@ export function readStoredSortPreference(
     if (!isSortBy(parsed.sort_by ?? null)) return null;
 
     return {
-      sort_by: parsed.sort_by,
+      sort_by: parsed.sort_by!,
       sort_order: normalizeSortOrder(parsed.sort_order),
     };
   } catch {
@@ -110,7 +124,28 @@ export function sortContracts(
     let comparison = 0;
 
     switch (preference.sort_by) {
+<<<<<<< HEAD
+      case 'name':
+        comparison = compareText(a.name, b.name);
+        break;
+      case 'popularity':
+      case 'downloads':
+        comparison = getNumericValue(a, ['popularity_score', 'interaction_count', 'deployment_count'])
+          - getNumericValue(b, ['popularity_score', 'interaction_count', 'deployment_count']);
+        break;
+      case 'rating': {
+        const ratingComparison =
+          getNumericValue(a, ['average_rating', 'avg_rating', 'rating'])
+          - getNumericValue(b, ['average_rating', 'avg_rating', 'rating']);
+
+        if (ratingComparison !== 0) {
+          comparison = ratingComparison;
+          break;
+        }
+
+=======
       case "popularity":
+>>>>>>> main
         comparison =
           getNumericValue(a, [
             "popularity_score",

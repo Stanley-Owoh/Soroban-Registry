@@ -6,6 +6,8 @@ import type {
   AnalyticsEvent,
   AnalyticsEventType,
   ActivityFeedResponse,
+  ContractDeploymentEvent,
+  ContractUpdateEvent,
 } from "@/types";
 import { api } from "@/lib/api";
 import { useRealtime } from "@/hooks/useRealtime";
@@ -24,12 +26,13 @@ import {
   Tag,
   type LucideIcon,
 } from "lucide-react";
+import type { TFunction } from "i18next";
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n/client";
 
-const getEventConfig = (
-  t: any,
-): Record<string, { icon: any; label: string; color: string }> => ({
+const getEventConfig = (t: TFunction): Partial<
+  Record<AnalyticsEventType, { icon: LucideIcon; label: string; color: string }>
+> => ({
   contract_published: {
     icon: Upload,
     label: t("activityFeed.published"),
@@ -85,22 +88,28 @@ export default function ActivityFeed() {
   // Update items when data changes
   useEffect(() => {
     if (data) {
-      setItems(data.items);
-      setNextCursor(data.next_cursor);
+      requestAnimationFrame(() => {
+        setItems(data.items);
+        setNextCursor(data.next_cursor);
+      });
     }
   }, [data]);
 
   // Handle real-time events
   useEffect(() => {
-    const handleDeployment = (event: RealtimeDeploymentEvent) => {
+    const handleDeployment = (event: unknown) => {
+      const deployment = event as ContractDeploymentEvent;
       const newEvent: AnalyticsEvent = {
         id: Math.random().toString(36).substring(7),
         event_type: "contract_deployed",
-        contract_id: event.contract_id,
-        user_address: event.publisher,
+        contract_id: deployment.contractId,
+        user_address: deployment.publisher,
         network: null,
-        metadata: { name: event.contract_name, version: event.version },
-        created_at: event.timestamp || new Date().toISOString(),
+        metadata: {
+          name: deployment.contractName,
+          version: deployment.version,
+        },
+        created_at: deployment.timestamp || new Date().toISOString(),
       };
 
       if (eventType === "all" || eventType === "contract_deployed") {
@@ -108,15 +117,16 @@ export default function ActivityFeed() {
       }
     };
 
-    const handleUpdate = (event: RealtimeUpdateEvent) => {
+    const handleUpdate = (event: unknown) => {
+      const update = event as ContractUpdateEvent;
       const newEvent: AnalyticsEvent = {
         id: Math.random().toString(36).substring(7),
         event_type: "contract_updated",
-        contract_id: event.contract_id,
+        contract_id: update.contractId,
         user_address: null,
         network: null,
-        metadata: { update_type: event.update_type, ...event.details },
-        created_at: event.timestamp || new Date().toISOString(),
+        metadata: { update_type: update.updateType, ...update.details },
+        created_at: update.timestamp || new Date().toISOString(),
       };
 
       if (eventType === "all" || eventType === "contract_updated") {
@@ -237,6 +247,19 @@ export default function ActivityFeed() {
                 color: "text-gray-500 bg-gray-500/10",
               };
               const Icon = config.icon;
+              const metadataName =
+                typeof item.metadata?.name === "string"
+                  ? item.metadata.name
+                  : null;
+              const metadataVersion =
+                typeof item.metadata?.version === "string" ||
+                typeof item.metadata?.version === "number"
+                  ? item.metadata.version
+                  : null;
+              const metadataUpdateType =
+                typeof item.metadata?.update_type === "string"
+                  ? item.metadata.update_type
+                  : null;
 
               return (
                 <div
@@ -260,13 +283,13 @@ export default function ActivityFeed() {
                             href={`/contracts/${item.contract_id}`}
                             className="font-medium text-primary hover:underline flex items-center gap-1"
                           >
-                            {item.metadata?.name ||
+                            {metadataName ||
                               formatShortenedText(item.contract_id, 10, "...")}
                             <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </Link>
-                          {item.metadata?.version && (
+                          {metadataVersion && (
                             <span className="text-muted-foreground">
-                              v{item.metadata.version}
+                              v{metadataVersion}
                             </span>
                           )}
                         </div>
@@ -293,12 +316,12 @@ export default function ActivityFeed() {
                       </div>
 
                       {item.event_type === "contract_updated" &&
-                        item.metadata?.update_type && (
+                        metadataUpdateType && (
                           <div className="mt-1 text-xs px-2 py-1 rounded bg-muted/50 border border-border inline-block w-fit">
                             <span className="font-medium">
                               {t("activityFeed.type")}:
                             </span>{" "}
-                            {item.metadata.update_type}
+                            {metadataUpdateType}
                           </div>
                         )}
                     </div>

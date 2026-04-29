@@ -75,6 +75,38 @@ function encodeSvgToBase64(svgContent: string): string {
   return btoa(binaryString);
 }
 
+interface CategoryDistributionItem {
+  total_views: number;
+  contract_count: number;
+  category?: string;
+}
+
+interface NetworkUsageItem {
+  verified_count: number;
+  contract_count: number;
+  network: string;
+}
+
+interface Publisher {
+  publisher_id: string;
+  name: string;
+  contract_count: number;
+  total_views: number;
+}
+
+interface DeploymentTrend {
+  date: string;
+  count: number;
+}
+
+interface AnalyticsData {
+  category_distribution?: CategoryDistributionItem[];
+  network_usage?: NetworkUsageItem[];
+  deployment_trends?: DeploymentTrend[];
+  top_publishers?: Publisher[];
+  recent_additions?: Record<string, unknown>[];
+}
+
 export default function AnalyticsDashboard() {
   const [data, setData] = useState<DashboardMetricResponse | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>("30d");

@@ -3,10 +3,28 @@
 import React, { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { AnalyticsEvent } from "@/lib/api";
+<<<<<<< HEAD
+// Simple relative time formatter replacing date-fns
+function formatDistanceToNow(date: Date): string {
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (diffInSeconds < 60) return 'just now';
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+  return date.toLocaleDateString();
+}
+import { 
+  GitCommit, 
+  ShieldCheck, 
+  FileCode, 
+=======
 import {
   GitCommit,
   ShieldCheck,
   FileCode,
+>>>>>>> main
   Settings,
   CheckCircle2,
 } from "lucide-react";
@@ -99,12 +117,20 @@ export function ContractTimeline({ contractId }: ContractTimelineProps) {
                 {event.event_type.replace(/_/g, " ")}
               </h4>
               <time className="text-xs text-muted-foreground whitespace-nowrap">
+<<<<<<< HEAD
+                {formatDistanceToNow(new Date(event.created_at))}
+              </time>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {(event.metadata?.message as string) || `Contract ${event.event_type.split('_')[1] || 'event'} recorded.`}
+=======
                 {timeAgo(event.created_at)}
               </time>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               {event.metadata?.message ||
                 `Contract ${event.event_type.split("_")[1] || "event"} recorded.`}
+>>>>>>> main
             </p>
           </div>
         </div>
