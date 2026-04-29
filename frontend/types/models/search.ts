@@ -48,7 +48,6 @@ export interface SemanticContractSearchResponse extends PaginatedResponse<Contra
   semantic: SemanticSearchMetadata;
 }
 
-<<<<<<< HEAD
 /**
  * Advanced query types for contract search
  */
@@ -73,33 +72,3 @@ export type QueryOperator = "AND" | "OR";
 export type QueryNode =
   | QueryCondition
   | { operator: QueryOperator; conditions: QueryNode[] };
-=======
-export interface RecommendationReason {
-  code: string;
-  message: string;
-  weight: number;
-}
-
-export interface RecommendedContract {
-  id: string;
-  contract_id: string;
-  name: string;
-  description?: string;
-  network: Network;
-  category?: string;
-  popularity_score: number;
-  similarity_score: number;
-  recommendation_score: number;
-  reasons: RecommendationReason[];
-  explanation: string;
-}
-
-export interface ContractRecommendationsResponse {
-  contract_id: string;
-  algorithm: string;
-  ab_variant: string;
-  cached: boolean;
-  generated_at: string;
-  recommendations: RecommendedContract[];
-}
->>>>>>> main
