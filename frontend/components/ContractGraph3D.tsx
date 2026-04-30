@@ -41,6 +41,7 @@ export default function ContractGraph3D({
   useEffect(() => {
     const container = mountRef.current;
     if (!container) return;
+    if (!graph || graph.nodes.length === 0) return;
 
     const width = container.clientWidth || 960;
     const scene = new THREE.Scene();
@@ -147,7 +148,7 @@ export default function ContractGraph3D({
       container.innerHTML = "";
       rendererRef.current = null;
     };
-  }, [graph.edges, graph.nodes, height, selectedNode?.id]);
+  }, [graph, height, selectedNode?.id]);
 
   const onExport = () => {
     const blob = new Blob([exportAsJson()], { type: "application/json" });
