@@ -27,16 +27,22 @@
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "app/**/*",
+    "components/**/*",
+    "hooks/**/*",
+    "lib/**/*",
+    "pages/**/*",
+    "providers/**/*",
+    "store/**/*",
+    "types/**/*"
   ],
   "exclude": [
     "node_modules",
     "setupTests.ts",
     "__tests__",
+    "stories",
+    ".storybook",
+    "mocks",
     "**/*.test.ts",
     "**/*.test.tsx",
     "**/*.spec.ts",
