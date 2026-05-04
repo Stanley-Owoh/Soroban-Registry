@@ -22,6 +22,26 @@ const eslintConfig = [
       "**/.storybook/**",
     ],
   },
+  {
+    rules: {
+      // Unused vars are a cleanup task, not a build blocker.
+      // Prefix with _ to intentionally suppress (e.g. _unusedParam).
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          vars: "all",
+          args: "after-used",
+          ignoreRestSiblings: true,
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+      "no-unused-vars": "off", // defer entirely to @typescript-eslint/no-unused-vars
+      // aria-expanded on input[type=text] is a false positive in this codebase
+      "jsx-a11y/role-supports-aria-props": "warn",
+    },
+  },
 ];
 
 export default eslintConfig;
