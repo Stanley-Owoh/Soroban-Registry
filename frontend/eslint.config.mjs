@@ -41,12 +41,9 @@ const eslintConfig = [
         },
       ],
       "no-console": "warn",
-      // Disable @typescript-eslint rules referenced inline in source files —
-      // prevents "Definition for rule ... was not found" build-blocking errors.
-      "@typescript-eslint/ban-ts-comment": "off",
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": "off",
-      "@typescript-eslint/no-require-imports": "off",
+      // NOTE: Do NOT add @typescript-eslint/* rules here unless
+      // @typescript-eslint/eslint-plugin is explicitly installed —
+      // referencing rules from a missing plugin causes a hard build error.
     },
   },
 ];

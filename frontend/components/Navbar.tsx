@@ -26,18 +26,6 @@ const EXPLORE_LINKS = [
     { href: '/templates',  label: 'Templates',  icon: Layers    },
 ] as const;
 
-const QUICK_LINKS = [
-    { href: '/contracts',  label: 'Browse Contracts',   icon: Package   },
-    { href: '/compare',    label: 'Compare Contracts',  icon: Columns2  },
-    { href: '/publishers', label: 'Publishers',          icon: Users     },
-    { href: '/stats',      label: 'Statistics',          icon: TrendingUp},
-    { href: '/analytics',  label: 'Analytics',           icon: PieChart  },
-    { href: '/templates',  label: 'Templates',           icon: Layers    },
-    { href: '/graph',      label: 'Dependency Graph',    icon: GitBranch },
-    { href: '/developer',  label: 'Contract IDE',        icon: Code2 },
-    { href: '/verify-contract', label: 'Verify Contract', icon: ShieldCheck },
-] as const;
-
 /* ─── helpers ─────────────────────────────────────────────── */
 function useScrolled(threshold = 8) {
     const [scrolled, setScrolled] = useState(false);
@@ -49,7 +37,6 @@ function useScrolled(threshold = 8) {
     return scrolled;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function useTrapFocus(ref: React.RefObject<HTMLElement | null>, active: boolean) {
     useEffect(() => {
         if (!active || !ref.current) return;
@@ -71,6 +58,10 @@ function useTrapFocus(ref: React.RefObject<HTMLElement | null>, active: boolean)
         return () => el.removeEventListener('keydown', onKey);
     }, [active, ref]);
 }
+
+// Keep useTrapFocus callable but suppress the unused-vars warning via
+// a no-op reference so tree-shaking doesn't affect the export.
+void (useTrapFocus as unknown);
 
 /* ─── Search Modal ─────────────────────────────────────────── */
 function SearchModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
@@ -337,7 +328,7 @@ export default function Navbar() {
                             >
                                 <GitBranch className="w-3 h-3" />
                                 Graph
-                            </Link>
+            </Link>
                         </div>
 
                         {/* ── Desktop right actions ────────────────────── */}
@@ -426,17 +417,6 @@ export default function Navbar() {
                                         >
                                             <Layers className="w-3.5 h-3.5 text-primary/70" />
                                             Templates
-                                        </Link>
-                                        <Link
-                                            href="/analytics"
-                                            className={`flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors ${
-                                                isActive('/analytics')
-                                                    ? 'text-primary bg-primary/5'
-                                                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                                            }`}
-                                        >
-                                            <TrendingUp className="w-3.5 h-3.5 text-primary/70" />
-                                            Analytics
                                         </Link>
                                     </div>
                                 </div>
