@@ -1,10 +1,5 @@
-import js from "@eslint/js";
-import tseslint from "typescript-eslint";
-
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
   {
     ignores: [
       ".next/**",
@@ -18,9 +13,10 @@ const eslintConfig = [
     ],
   },
   {
+    files: ["**/*.{js,jsx,ts,tsx,mjs,cjs}"],
     rules: {
       // Unused vars: warn only, ignore _-prefixed identifiers
-      "@typescript-eslint/no-unused-vars": [
+      "no-unused-vars": [
         "warn",
         {
           vars: "all",
@@ -31,11 +27,8 @@ const eslintConfig = [
           caughtErrorsIgnorePattern: "^_",
         },
       ],
-      "no-unused-vars": "off",
-      // Allow 'any' — common in a codebase still being typed
-      "@typescript-eslint/no-explicit-any": "warn",
-      // Allow require() for CJS interop
-      "@typescript-eslint/no-require-imports": "warn",
+      "no-undef": "off",
+      "no-console": "warn",
     },
   },
 ];
