@@ -32,49 +32,40 @@ use crate::{
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreateCategoryRequest {
-    /// Display name for the category (max 100 characters, must be unique).
     pub name: String,
-    /// Optional human-readable description shown on the frontend.
     pub description: Option<String>,
-    /// UUID of the parent category.  Supply to nest this category under another.
     pub parent_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdateCategoryRequest {
-    /// New display name.  Omit to leave unchanged.
     pub name: Option<String>,
-    /// New description.  Send an empty string to clear it.
     pub description: Option<String>,
-    /// New parent UUID.  Send `null` explicitly to make the category top-level.
     #[serde(default, deserialize_with = "deserialize_optional_uuid_string")]
     pub parent_id: Option<Option<String>>,
 }
 
-/// Query parameters for DELETE /api/admin/categories/:id
 #[derive(Debug, Deserialize)]
 pub struct DeleteCategoryQuery {
-    /// When `true`, contracts that reference this category have their category
-    /// field cleared before the category is deleted.  Defaults to `false`.
     #[serde(default)]
     pub force: bool,
 }
 
 /// Raw row returned by the list query (includes computed usage_count).
-#[derive(Debug, FromRow)]
-struct CategoryRow {
-    id: Uuid,
-    name: String,
-    slug: String,
-    description: Option<String>,
-    parent_id: Option<Uuid>,
-    is_default: bool,
-    usage_count: i64,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
+/// Must be `pub` so that graphql modules can reference it.
+#[derive(Debug, Clone, FromRow)]
+pub struct CategoryRow {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+    pub description: Option<String>,
+    pub parent_id: Option<Uuid>,
+    pub is_default: bool,
+    pub usage_count: i64,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
-/// Public-facing category representation returned by all endpoints.
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CategoryResponse {
     pub id: String,
@@ -82,13 +73,9 @@ pub struct CategoryResponse {
     pub slug: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    /// UUID of the parent category, or `null` for top-level categories.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_id: Option<String>,
-    /// Whether this category was seeded at database creation time and should
-    /// not be permanently removed.
     pub is_default: bool,
-    /// Number of contracts currently assigned to this category.
     pub usage_count: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -112,12 +99,6 @@ impl From<CategoryRow> for CategoryResponse {
 
 // ── Slug helper ───────────────────────────────────────────────────────────────
 
-/// Converts a category name into a URL-safe slug.
-///
-/// ```text
-/// "DeFi Lending" → "defi-lending"
-/// "DEX"          → "dex"
-/// ```
 fn to_slug(name: &str) -> String {
     name.trim()
         .to_lowercase()
@@ -132,9 +113,6 @@ fn to_slug(name: &str) -> String {
 
 // ── Serde helper for nullable optional UUID ───────────────────────────────────
 
-/// Deserialises `Option<Option<String>>` so the caller can distinguish between
-/// a field that was omitted (outer `None`) and one explicitly set to `null`
-/// (inner `None`).
 fn deserialize_optional_uuid_string<'de, D>(
     deserializer: D,
 ) -> Result<Option<Option<String>>, D::Error>
@@ -192,10 +170,6 @@ fn parse_optional_parent_id(raw: &Option<String>) -> ApiResult<Option<Uuid>> {
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
-/// List all categories with their current usage counts.
-///
-/// Results are ordered so that default (seeded) categories appear first,
-/// followed by custom categories alphabetically.
 #[utoipa::path(
     get,
     path = "/api/categories",
@@ -215,7 +189,6 @@ pub async fn list_categories(
     Ok(Json(rows.into_iter().map(CategoryResponse::from).collect()))
 }
 
-/// Get a single category by ID.
 #[utoipa::path(
     get,
     path = "/api/categories/{id}",
@@ -252,10 +225,6 @@ pub async fn get_category(
     Ok(Json(CategoryResponse::from(row)))
 }
 
-/// Create a new contract category.
-///
-/// The slug is derived automatically from the name.  Returns 409 Conflict if a
-/// category with the same name or slug already exists.
 #[utoipa::path(
     post,
     path = "/api/admin/categories",
@@ -290,8 +259,6 @@ pub async fn create_category(
 
     let parent_uuid = parse_optional_parent_id(&req.parent_id)?;
 
-    // If a parent was supplied, verify it exists to give a clear error message
-    // rather than a cryptic FK violation.
     if let Some(pid) = parent_uuid {
         let parent_exists: bool =
             sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM contract_categories WHERE id = $1)")
@@ -336,10 +303,6 @@ pub async fn create_category(
     Ok((StatusCode::CREATED, Json(CategoryResponse::from(row))))
 }
 
-/// Update a category's name, description, or parent.
-///
-/// Only fields that are explicitly included in the JSON body are changed.
-/// Changing the name automatically regenerates the slug.
 #[utoipa::path(
     put,
     path = "/api/admin/categories/{id}",
@@ -363,7 +326,6 @@ pub async fn update_category(
 ) -> ApiResult<Json<CategoryResponse>> {
     let category_uuid = parse_category_id(&id)?;
 
-    // Confirm the category exists before attempting the update.
     let exists: bool =
         sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM contract_categories WHERE id = $1)")
             .bind(category_uuid)
@@ -378,12 +340,10 @@ pub async fn update_category(
         ));
     }
 
-    // Resolve the new parent UUID if one was supplied.
     let new_parent: Option<Option<Uuid>> = match &req.parent_id {
-        None => None, // field was omitted → do not change parent
+        None => None,
         Some(inner) => {
             let uuid = parse_optional_parent_id(inner)?;
-            // Guard against self-referencing loops.
             if let Some(pid) = uuid {
                 if pid == category_uuid {
                     return Err(ApiError::bad_request(
@@ -410,7 +370,6 @@ pub async fn update_category(
         }
     };
 
-    // Build the UPDATE statement dynamically so we only touch supplied fields.
     let updated: CategoryRow = {
         let name_val = req.name.as_deref().map(str::trim);
         if let Some(name) = name_val {
@@ -425,7 +384,6 @@ pub async fn update_category(
         let new_slug = name_val.map(to_slug);
 
         match new_parent {
-            // parent unchanged
             None => sqlx::query_as(
                 r#"
                 WITH updated AS (
@@ -461,7 +419,6 @@ pub async fn update_category(
                 _ => db_err("update category", err),
             })?,
 
-            // parent explicitly changed (possibly to NULL)
             Some(parent_uuid) => sqlx::query_as(
                 r#"
                 WITH updated AS (
@@ -504,15 +461,6 @@ pub async fn update_category(
     Ok(Json(CategoryResponse::from(updated)))
 }
 
-/// Delete a category.
-///
-/// Default categories (`is_default = true`) cannot be deleted.
-///
-/// If any contracts are currently assigned to this category:
-///   - Without `?force=true` the request fails with **409 Conflict** and
-///     includes the current usage count in the response body.
-///   - With `?force=true` those contracts have their `category` field cleared
-///     (`NULL`) before the category row is removed.
 #[utoipa::path(
     delete,
     path = "/api/admin/categories/{id}",
@@ -537,7 +485,6 @@ pub async fn delete_category(
 ) -> ApiResult<StatusCode> {
     let category_uuid = parse_category_id(&id)?;
 
-    // Fetch the category so we can check is_default and name in one query.
     let row = sqlx::query_as::<_, (String, bool)>(
         "SELECT name, is_default FROM contract_categories WHERE id = $1",
     )
@@ -561,7 +508,6 @@ pub async fn delete_category(
         ));
     }
 
-    // Count contracts currently using this category.
     let usage_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM contracts WHERE category = $1")
         .bind(&name)
         .fetch_one(&state.db)
@@ -579,7 +525,6 @@ pub async fn delete_category(
         ));
     }
 
-    // With force=true: clear the category field on affected contracts first.
     if usage_count > 0 && query.force {
         sqlx::query("UPDATE contracts SET category = NULL WHERE category = $1")
             .bind(&name)
@@ -596,8 +541,6 @@ pub async fn delete_category(
 
     Ok(StatusCode::NO_CONTENT)
 }
-
-// ── Unit tests ────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
