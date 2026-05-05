@@ -16,6 +16,7 @@ if (process.env.NEXT_PUBLIC_USE_MOCKS === "true") {
 }
 import { CollaborativeComment, CollaborativeReviewDetails, VerificationLevel } from "@/types";
 import { trackEvent } from "./analytics";
+import { fetchStats } from "./api/stats";
 import {
   ApiError,
   NetworkError,
@@ -705,6 +706,13 @@ export async function fetchContracts(
   return apiFetch<PaginatedResponse<Contract>>(`/contracts?${searchParams.toString()}`);
 }
 
+export async function advancedSearchContracts(
+  params: ContractSearchParams = {},
+): Promise<PaginatedResponse<Contract>> {
+  // Advanced search is just a wrapper around the standard search
+  return fetchContracts(params);
+}
+
 export async function fetchContract(id: string, network?: Network): Promise<ContractGetResponse> {
   if (USE_MOCKS) {
     const contract = MOCK_CONTRACTS.find(
@@ -1052,12 +1060,189 @@ export async function setDeprecation(
   });
 }
 
+// ─── Templates ────────────────────────────────────────────────────────────────
+
+export async function fetchTemplates(): Promise<Template[]> {
+  if (USE_MOCKS) return Promise.resolve([]);
+  return apiFetch<Template[]>("/api/templates");
+}
+
+// ─── Contract Graph ───────────────────────────────────────────────────────────
+
+export async function fetchContractGraph(network?: Network): Promise<unknown> {
+  if (USE_MOCKS) {
+    return { nodes: [], edges: [] };
+  }
+  const qs = network ? `?network=${network}` : "";
+  return apiFetch<unknown>(`/api/contracts/graph${qs}`);
+}
+
+export async function fetchContractLocalGraph(
+  contractId: string,
+  depth?: number,
+): Promise<unknown> {
+  if (USE_MOCKS) {
+    return { nodes: [], edges: [] };
+  }
+  const search = new URLSearchParams();
+  if (depth != null) search.set("depth", String(depth));
+  const qs = search.toString() ? `?${search.toString()}` : "";
+  return apiFetch<unknown>(`/api/contracts/${contractId}/graph${qs}`);
+}
+
+// ─── Formal Verification ──────────────────────────────────────────────────────
+
+export async function fetchFormalVerificationResults(contractId: string): Promise<unknown> {
+  if (USE_MOCKS) {
+    return { status: "pending", results: [] };
+  }
+  return apiFetch<unknown>(`/api/contracts/${contractId}/formal-verification`);
+}
+
+// ─── Compatibility Testing ────────────────────────────────────────────────────
+
+export async function fetchCompatibilityMatrix(contractId: string): Promise<unknown> {
+  if (USE_MOCKS) {
+    return { matrix: [] };
+  }
+  return apiFetch<unknown>(`/api/contracts/${contractId}/compatibility-matrix`);
+}
+
+export async function fetchCompatibilityHistory(
+  contractId: string,
+  limit?: number,
+  offset?: number,
+): Promise<unknown> {
+  if (USE_MOCKS) {
+    return { items: [] };
+  }
+  const search = new URLSearchParams();
+  if (limit != null) search.set("limit", String(limit));
+  if (offset != null) search.set("offset", String(offset));
+  const qs = search.toString() ? `?${search.toString()}` : "";
+  return apiFetch<unknown>(`/api/contracts/${contractId}/compatibility-matrix/history${qs}`);
+}
+
+export async function fetchCompatibilityNotifications(contractId: string): Promise<unknown> {
+  if (USE_MOCKS) {
+    return { notifications: [] };
+  }
+  return apiFetch<unknown>(`/api/contracts/${contractId}/compatibility-matrix/notifications`);
+}
+
+export function getCompatibilityExportUrl(
+  contractId: string,
+  format: "csv" | "json",
+): string {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+  return `${API_URL}/api/contracts/${contractId}/compatibility-matrix/export?format=${format}`;
+}
+
+// ─── Comments ─────────────────────────────────────────────────────────────────
+
+export async function fetchComments(contractId: string): Promise<CollaborativeComment[]> {
+  if (USE_MOCKS) {
+    return [];
+  }
+  return apiFetch<CollaborativeComment[]>(`/api/contracts/${contractId}/comments`);
+}
+
+// ─── Preferences ──────────────────────────────────────────────────────────────
+
+export interface UserPreferences {
+  favorites: string[];
+  // Add other preference fields as needed
+  [key: string]: unknown;
+}
+
+export async function fetchPreferences(token: string): Promise<UserPreferences> {
+  if (USE_MOCKS) {
+    return { favorites: [] };
+  }
+  return apiFetch<UserPreferences>("/api/me/preferences", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// ─── Contract Search Suggestions ───────────────────────────────────────────────
+
+export async function fetchContractSearchSuggestions(
+  query: string,
+  limit?: number,
+): Promise<SearchSuggestion[]> {
+  if (USE_MOCKS || !query.trim()) {
+    return [];
+  }
+  const search = new URLSearchParams();
+  search.set("query", query);
+  if (limit != null) search.set("limit", String(limit));
+  const response = await apiFetch<SearchSuggestionsResponse>(
+    `/search/suggestions?${search.toString()}`,
+  );
+  return response.items || [];
+}
+
+// ─── Custom Metrics ───────────────────────────────────────────────────────────
+
+export async function fetchCustomMetricCatalog(contractId: string): Promise<MetricCatalogEntry[]> {
+  if (USE_MOCKS) return [];
+  return apiFetch<MetricCatalogEntry[]>(`/api/contracts/${contractId}/metrics/catalog`);
+}
+
+export async function fetchCustomMetricSeries(
+  contractId: string,
+  metricName: string,
+  params: { from?: string; to?: string; resolution?: "hour" | "day" | "raw"; limit?: number } = {},
+): Promise<MetricSeriesResponse> {
+  if (USE_MOCKS) {
+    return {
+      contract_id: contractId,
+      metric_name: metricName,
+      metric_type: null,
+      resolution: params.resolution || "day",
+      points: [],
+    };
+  }
+  const searchParams = new URLSearchParams();
+  if (params.from) searchParams.set("from", params.from);
+  if (params.to) searchParams.set("to", params.to);
+  if (params.resolution) searchParams.set("resolution", params.resolution);
+  if (params.limit) searchParams.set("limit", String(params.limit));
+  return apiFetch<MetricSeriesResponse>(
+    `/api/contracts/${contractId}/metrics/${encodeURIComponent(metricName)}?${searchParams.toString()}`,
+  );
+}
+
 // ─── Collaborative Review ─────────────────────────────────────────────────────
 
 export async function fetchCollaborativeReview(
   contractId: string,
 ): Promise<CollaborativeReviewDetails> {
   return apiFetch<CollaborativeReviewDetails>(`/contracts/${contractId}/review`);
+}
+
+export interface CreateCollaborativeReviewRequest {
+  contract_id: string;
+  version: string;
+  reviewer_ids: string[];
+}
+
+export interface CollaborativeReview {
+  id: string;
+  contract_id: string;
+  version: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function createCollaborativeReview(
+  request: CreateCollaborativeReviewRequest,
+): Promise<CollaborativeReview> {
+  return apiFetch<CollaborativeReview>("/api/reviews/collaborative", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }
 
 export async function addReviewComment(
@@ -1067,6 +1252,16 @@ export async function addReviewComment(
   return apiFetch<CollaborativeComment>(`/contracts/${contractId}/review/comments`, {
     method: "POST",
     body: JSON.stringify(comment),
+  });
+}
+
+export async function updateReviewerStatus(
+  reviewId: string,
+  status: string,
+): Promise<void> {
+  return apiFetch<void>(`/api/reviews/collaborative/${reviewId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
   });
 }
 
@@ -1101,14 +1296,24 @@ export { trackEvent };
 
 export const api = {
   fetchContracts,
+  getContracts: fetchContracts,
+  advancedSearchContracts,
   fetchContract,
+  getContract: fetchContract,
   fetchContractHealth,
+  getContractHealth: fetchContractHealth,
   fetchContractAnalytics,
+  getContractAnalytics: fetchContractAnalytics,
   fetchContractVersions,
+  getContractVersions: fetchContractVersions,
   fetchContractAbi,
+  getContractAbi: fetchContractAbi,
   fetchContractChangelog,
+  getContractChangelog: fetchContractChangelog,
   fetchContractRecommendations,
+  getContractRecommendations: fetchContractRecommendations,
   fetchContractInteractions,
+  getContractInteractions: fetchContractInteractions,
   publishContract,
   fetchPublisher,
   fetchPublishers,
@@ -1118,6 +1323,7 @@ export const api = {
   semanticSearch,
   fetchActivityFeed,
   fetchDependencyTree,
+  getContractDependencies: fetchDependencyTree,
   fetchMetricCatalog,
   fetchMetricSeries,
   generateReleaseNotes,
@@ -1125,9 +1331,50 @@ export const api = {
   updateReleaseNotes,
   publishReleaseNotes,
   fetchDeprecationInfo,
+  getDeprecationInfo: fetchDeprecationInfo,
   setDeprecation,
   fetchCollaborativeReview,
+  getCollaborativeReview: fetchCollaborativeReview,
+  createCollaborativeReview,
   addReviewComment,
+  addCollaborativeComment: addReviewComment,
+  updateReviewerStatus,
   fetchContractExamples,
+  getContractExamples: fetchContractExamples,
   fetchMaintenanceWindow,
+  // Backward-compatible aliases for stats and templates
+  fetchStats,
+  getStats: () => fetchStats("all-time"),
+  fetchTemplates,
+  getTemplates: fetchTemplates,
+  // Backward-compatible aliases for graph methods
+  fetchContractGraph,
+  getContractGraph: fetchContractGraph,
+  fetchContractLocalGraph,
+  getContractLocalGraph: fetchContractLocalGraph,
+  // Backward-compatible aliases for formal verification
+  fetchFormalVerificationResults,
+  getFormalVerificationResults: fetchFormalVerificationResults,
+  // Backward-compatible aliases for compatibility testing
+  fetchCompatibilityMatrix,
+  getCompatibilityMatrix: fetchCompatibilityMatrix,
+  fetchCompatibilityHistory,
+  getCompatibilityHistory: fetchCompatibilityHistory,
+  fetchCompatibilityNotifications,
+  getCompatibilityNotifications: fetchCompatibilityNotifications,
+  getCompatibilityExportUrl,
+  // Backward-compatible aliases for comments
+  fetchComments,
+  getComments: fetchComments,
+  // Backward-compatible aliases for preferences
+  fetchPreferences,
+  getPreferences: fetchPreferences,
+  // Backward-compatible aliases for search suggestions
+  fetchContractSearchSuggestions,
+  getContractSearchSuggestions: fetchContractSearchSuggestions,
+  // Backward-compatible aliases for custom metrics
+  fetchCustomMetricCatalog,
+  getCustomMetricCatalog: fetchCustomMetricCatalog,
+  fetchCustomMetricSeries,
+  getCustomMetricSeries: fetchCustomMetricSeries,
 };

@@ -92,19 +92,19 @@ function ContractDetailsContent() {
     error,
   } = useQuery({
     queryKey: ["contract", id],
-    queryFn: () => api.getContract(id!),
+    queryFn: () => api.fetchContract(id!),
     enabled: !!id,
   });
 
   useQuery({
     queryKey: ["contract-dependencies", id],
-    queryFn: () => api.getContractDependencies(id!),
+    queryFn: () => api.fetchDependencyTree(id!),
     enabled: !!id && !!contract && activeTab === "overview",
   });
 
   const { data: versions = [] } = useQuery({
     queryKey: ["contract-versions", id],
-    queryFn: () => api.getContractVersions(id!),
+    queryFn: () => api.fetchContractVersions(id!),
     enabled:
       !!id &&
       !!contract &&
@@ -121,26 +121,26 @@ function ContractDetailsContent() {
 
   const { data: abiResponse, isLoading: abiLoading } = useQuery({
     queryKey: ["contract-abi", id, latestVersion?.version],
-    queryFn: () => api.getContractAbi(id!, latestVersion?.version),
+    queryFn: () => api.fetchContractAbi(id!, latestVersion?.version),
     enabled: !!id && !!contract && activeTab === "abi",
   });
 
   const { data: analyticsData } = useQuery({
     queryKey: ["contract-analytics-summary", id],
-    queryFn: () => api.getContractAnalytics(id!),
+    queryFn: () => api.fetchContractAnalytics(id!),
     enabled:
       !!id && !!contract && ["interactions", "deployments"].includes(activeTab),
   });
 
   const { data: interactionsData } = useQuery({
     queryKey: ["contract-interactions", id],
-    queryFn: () => api.getContractInteractions(id!, { limit: 10, offset: 0 }),
+    queryFn: () => api.fetchContractInteractions(id!, { limit: 10, offset: 0 }),
     enabled: !!id && !!contract && activeTab === "interactions",
   });
 
   const { data: changelog } = useQuery({
     queryKey: ["contract-changelog", id],
-    queryFn: () => api.getContractChangelog(id!),
+    queryFn: () => api.fetchContractChangelog(id!),
     enabled: !!id && !!contract && activeTab === "history",
   });
 
@@ -191,7 +191,7 @@ function ContractDetailsContent() {
 
   const { data: deprecationInfo } = useQuery({
     queryKey: ["contract-deprecation", id],
-    queryFn: () => api.getDeprecationInfo(id!),
+    queryFn: () => api.fetchDeprecationInfo(id!),
     enabled: !!id && !!contract,
   });
 
