@@ -20,6 +20,7 @@ mod reorg;
 mod rpc;
 mod state;
 mod telemetry;
+mod usdc_scanner;
 
 use anyhow::Result;
 use config::{DatabaseConfig, ServiceConfig};
@@ -361,6 +362,31 @@ async fn main() -> Result<()> {
 
     // Load configuration
     let config = ServiceConfig::from_env()?;
+
+    // Spawn the marketplace USDC scanner as a parallel task if the
+    // marketplace receiving address is configured. This is opt-in;
+    // deployments without the marketplace simply don't get the task.
+    // The scanner uses its own DB pool (small, since it only reads/
+    // writes the single cursor row) and its own HTTP client. Logged
+    // errors don't terminate the task — it self-heals on the next
+    // poll cycle. See usdc_scanner.rs for the protocol.
+    match usdc_scanner::ScannerConfig::from_env() {
+        Ok(Some(scanner_cfg)) => {
+            let scanner_pool = sqlx::postgres::PgPoolOptions::new()
+                .max_connections(3)
+                .connect(&config.database.connection_string)
+                .await?;
+            let scanner = usdc_scanner::UsdcScanner::new(scanner_cfg, scanner_pool);
+            tokio::spawn(scanner.run());
+            info!("USDC marketplace scanner spawned");
+        }
+        Ok(None) => {
+            info!("MARKETPLACE_USDC_RECEIVING_ADDRESS not set; USDC scanner not started");
+        }
+        Err(e) => {
+            warn!(error = %e, "USDC scanner config invalid; continuing without it");
+        }
+    }
 
     // Initialize service
     let mut service = IndexerService::new(config).await?;
