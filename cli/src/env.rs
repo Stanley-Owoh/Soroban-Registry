@@ -13,7 +13,10 @@ use anyhow::{Context, Result};
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::PathBuf;
 
 // ── Storage types ─────────────────────────────────────────────────────────────
@@ -57,7 +60,10 @@ fn dev_template() -> Environment {
         "http://localhost:3001".to_string(),
     );
     vars.insert("SOROBAN_NETWORK".to_string(), "testnet".to_string());
-    vars.insert("SOROBAN_REGISTRY_LOG_LEVEL".to_string(), "debug".to_string());
+    vars.insert(
+        "SOROBAN_REGISTRY_LOG_LEVEL".to_string(),
+        "debug".to_string(),
+    );
     Environment { vars }
 }
 
@@ -68,10 +74,7 @@ fn staging_template() -> Environment {
         "https://staging-registry.example.com".to_string(),
     );
     vars.insert("SOROBAN_NETWORK".to_string(), "testnet".to_string());
-    vars.insert(
-        "SOROBAN_REGISTRY_LOG_LEVEL".to_string(),
-        "info".to_string(),
-    );
+    vars.insert("SOROBAN_REGISTRY_LOG_LEVEL".to_string(), "info".to_string());
     Environment { vars }
 }
 
@@ -82,10 +85,7 @@ fn production_template() -> Environment {
         "https://registry.example.com".to_string(),
     );
     vars.insert("SOROBAN_NETWORK".to_string(), "mainnet".to_string());
-    vars.insert(
-        "SOROBAN_REGISTRY_LOG_LEVEL".to_string(),
-        "warn".to_string(),
-    );
+    vars.insert("SOROBAN_REGISTRY_LOG_LEVEL".to_string(), "warn".to_string());
     Environment { vars }
 }
 
@@ -103,9 +103,7 @@ pub fn template_by_name(name: &str) -> Option<Environment> {
 
 fn storage_path() -> Result<PathBuf> {
     let home = dirs::home_dir().context("Could not resolve home directory")?;
-    Ok(home
-        .join(".soroban-registry")
-        .join("environments.json"))
+    Ok(home.join(".soroban-registry").join("environments.json"))
 }
 
 fn load_store() -> Result<Environments> {
@@ -126,12 +124,28 @@ fn save_store(store: &Environments) -> Result<()> {
             .with_context(|| format!("Failed to create config dir: {}", parent.display()))?;
     }
     let content = serde_json::to_string_pretty(store)?;
-    fs::write(&path, content)
-        .with_context(|| format!("Failed to write environments file: {}", path.display()))
+    #[cfg(unix)]
+    {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&path)
+            .with_context(|| format!("Failed to open environments file: {}", path.display()))?;
+        file.write_all(content.as_bytes())
+            .with_context(|| format!("Failed to write environments file: {}", path.display()))?;
+    }
+    #[cfg(not(unix))]
+    {
+        fs::write(&path, content)
+            .with_context(|| format!("Failed to write environments file: {}", path.display()))?;
+    }
+    Ok(())
 }
 
 /// Resolve the environment name: use the provided name or fall back to active.
-fn resolve_env_name<'a>(store: &'a Environments, env: Option<&str>) -> &'a str {
+fn resolve_env_name<'a>(store: &'a Environments, env: Option<&'a str>) -> &'a str {
     env.unwrap_or(&store.active)
 }
 
@@ -163,6 +177,13 @@ fn validate_env_name(name: &str) -> Result<()> {
     if name.is_empty() {
         anyhow::bail!("Environment name cannot be empty.");
     }
+    let first = name.chars().next().unwrap();
+    if !first.is_ascii_alphanumeric() && first != '_' {
+        anyhow::bail!(
+            "Invalid environment name '{}': must start with a letter, digit, or underscore.",
+            name
+        );
+    }
     if !name
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
@@ -179,6 +200,28 @@ fn validate_env_name(name: &str) -> Result<()> {
 fn shell_escape(value: &str) -> String {
     // Wrap in single quotes; escape any embedded single quotes.
     format!("'{}'", value.replace('\'', "'\\''"))
+}
+
+/// Escape a value for safe inclusion in dotenv `KEY=VALUE` format.
+fn dotenv_escape(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len() + 2);
+    escaped.push('"');
+    for c in value.chars() {
+        match c {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            _ => escaped.push(c),
+        }
+    }
+    escaped.push('"');
+    escaped
+}
+
+fn masked_value(value: &str) -> String {
+    format!("[hidden] ({} chars)", value.chars().count())
 }
 
 // ── Global config merge ───────────────────────────────────────────────────────
@@ -206,8 +249,8 @@ fn merged_vars(env: &Environment) -> BTreeMap<String, String> {
 
 // ── Public entry points ───────────────────────────────────────────────────────
 
-/// `soroban-registry env set <NAME> <VALUE> [--env <env>]`
-pub fn set_var(name: &str, value: &str, env: Option<&str>) -> Result<()> {
+/// `soroban-registry env set <NAME> <VALUE> [--env <env>] [--show-value]`
+pub fn set_var(name: &str, value: &str, env: Option<&str>, show_value: bool) -> Result<()> {
     validate_var_name(name)?;
 
     let mut store = load_store()?;
@@ -217,10 +260,7 @@ pub fn set_var(name: &str, value: &str, env: Option<&str>) -> Result<()> {
         validate_env_name(e)?;
     }
 
-    let environment = store
-        .environments
-        .entry(env_name.clone())
-        .or_default();
+    let environment = store.environments.entry(env_name.clone()).or_default();
 
     let overwriting = environment.vars.contains_key(name);
     environment.vars.insert(name.to_string(), value.to_string());
@@ -242,7 +282,15 @@ pub fn set_var(name: &str, value: &str, env: Option<&str>) -> Result<()> {
             env_name.bright_blue()
         );
     }
-    println!("     {} {}", "Value:".bold(), value.dimmed());
+    if show_value {
+        println!("     {} {}", "Value:".bold(), value.dimmed());
+    } else {
+        println!(
+            "     {} {}",
+            "Value (masked):".bold(),
+            masked_value(value).dimmed()
+        );
+    }
     println!();
     Ok(())
 }
@@ -291,11 +339,7 @@ pub fn get_var(name: &str, env: Option<&str>, json: bool) -> Result<()> {
                     }))?
                 );
             } else {
-                anyhow::bail!(
-                    "Variable '{}' not set in environment '{}'.",
-                    name,
-                    env_name
-                );
+                anyhow::bail!("Variable '{}' not set in environment '{}'.", name, env_name);
             }
         }
     }
@@ -318,12 +362,10 @@ pub fn list_vars(env: Option<&str>, all: bool, merged: bool, json: bool) -> Resu
     }
 
     let env_name = resolve_env_name(&store, env);
-    let environment = store.environments.get(env_name).ok_or_else(|| {
-        anyhow::anyhow!(
-            "Environment '{}' does not exist.",
-            env_name
-        )
-    })?;
+    let environment = store
+        .environments
+        .get(env_name)
+        .ok_or_else(|| anyhow::anyhow!("Environment '{}' does not exist.", env_name))?;
 
     let vars = if merged {
         merged_vars(environment)
@@ -354,9 +396,11 @@ pub fn copy_env(from: &str, to: &str, overwrite: bool) -> Result<()> {
 
     let mut store = load_store()?;
 
-    let source = store.environments.get(from).ok_or_else(|| {
-        anyhow::anyhow!("Source environment '{}' does not exist.", from)
-    })?.clone();
+    let source = store
+        .environments
+        .get(from)
+        .ok_or_else(|| anyhow::anyhow!("Source environment '{}' does not exist.", from))?
+        .clone();
 
     if store.environments.contains_key(to) && !overwrite {
         anyhow::bail!(
@@ -383,7 +427,6 @@ pub fn copy_env(from: &str, to: &str, overwrite: bool) -> Result<()> {
 }
 
 /// `soroban-registry env delete <NAME> [--env <env>]`
-/// If NAME equals an environment name (and --env-delete is set), delete the whole environment.
 pub fn delete_var(name: &str, env: Option<&str>) -> Result<()> {
     validate_var_name(name)?;
 
@@ -396,11 +439,7 @@ pub fn delete_var(name: &str, env: Option<&str>) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Environment '{}' does not exist.", env_name))?;
 
     if environment.vars.remove(name).is_none() {
-        anyhow::bail!(
-            "Variable '{}' not set in environment '{}'.",
-            name,
-            env_name
-        );
+        anyhow::bail!("Variable '{}' not set in environment '{}'.", name, env_name);
     }
 
     save_store(&store)?;
@@ -421,9 +460,10 @@ pub fn export_env(env: Option<&str>, format: &str, merged: bool) -> Result<()> {
     let store = load_store()?;
     let env_name = resolve_env_name(&store, env);
 
-    let environment = store.environments.get(env_name).ok_or_else(|| {
-        anyhow::anyhow!("Environment '{}' does not exist.", env_name)
-    })?;
+    let environment = store
+        .environments
+        .get(env_name)
+        .ok_or_else(|| anyhow::anyhow!("Environment '{}' does not exist.", env_name))?;
 
     let vars = if merged {
         merged_vars(environment)
@@ -444,13 +484,16 @@ pub fn export_env(env: Option<&str>, format: &str, merged: bool) -> Result<()> {
         "dotenv" | ".env" => {
             println!("# soroban-registry env: {}", env_name);
             for (k, v) in &vars {
-                // .env format: KEY=VALUE (no quoting needed, raw)
-                println!("{}={}", k, v);
+                // .env format: KEY="escaped VALUE"
+                println!("{}={}", k, dotenv_escape(v));
             }
         }
         _ => {
             // Default: shell (bash/zsh sourceable)
-            println!("# soroban-registry env: {} — source this file to activate", env_name);
+            println!(
+                "# soroban-registry env: {} — source this file to activate",
+                env_name
+            );
             println!("# Generated: {}", chrono::Utc::now().to_rfc3339());
             println!();
             for (k, v) in &vars {
@@ -531,11 +574,7 @@ fn print_env_table(
     if vars.is_empty() {
         println!("  {}", "No variables set.".dimmed());
     } else {
-        println!(
-            "  {:<40} {}",
-            "Variable".bold(),
-            "Value".bold()
-        );
+        println!("  {:<40} {}", "Variable".bold(), "Value".bold());
         println!("  {}", "─".repeat(56).dimmed());
         for (k, v) in vars {
             let display_value = if v.len() > 50 {
@@ -579,4 +618,32 @@ fn print_all_envs(store: &Environments) {
 
     println!("{}", "═".repeat(60).cyan());
     println!();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_env_name_rejects_leading_hyphen() {
+        let err = validate_env_name("-prod").expect_err("leading hyphen should fail");
+        assert!(
+            err.to_string().contains("must start"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn dotenv_escape_quotes_special_characters() {
+        let escaped = dotenv_escape("a value \"quoted\"\nnext\\line");
+        assert_eq!(escaped, "\"a value \\\"quoted\\\"\\nnext\\\\line\"");
+    }
+
+    #[test]
+    fn masked_value_hides_original_content() {
+        let original = "super-secret-token";
+        let masked = masked_value(original);
+        assert!(!masked.contains(original));
+        assert!(masked.contains("18 chars"));
+    }
 }

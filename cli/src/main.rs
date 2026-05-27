@@ -49,7 +49,7 @@ mod webhook;
 mod wizard;
 
 use anyhow::Result;
-use clap::{ArgAction, Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 use colored::Colorize;
 use patch::Severity;
 
@@ -860,13 +860,13 @@ pub enum Commands {
         action: PluginCommands,
     },
 
-    /// External command (may be provided by an installed plugin)
     /// Manage environment variable sets for different deployments (#843)
     Env {
         #[command(subcommand)]
         action: EnvCommands,
     },
 
+    /// External command (may be provided by an installed plugin)
     #[command(external_subcommand)]
     External(Vec<String>),
 }
@@ -1498,6 +1498,9 @@ pub enum EnvCommands {
         /// Target environment (defaults to the active environment)
         #[arg(long)]
         env: Option<String>,
+        /// Print the full value instead of masking it
+        #[arg(long)]
+        show_value: bool,
     },
 
     /// Get a variable's value from an environment
@@ -1566,8 +1569,8 @@ pub enum EnvCommands {
         #[arg(long)]
         env: Option<String>,
         /// Output format: shell (default), json, dotenv
-        #[arg(long, default_value = "shell")]
-        format: String,
+        #[arg(long, value_enum, default_value_t = EnvExportFormat::Shell)]
+        format: EnvExportFormat,
         /// Merge global config defaults into the export
         #[arg(long)]
         merged: bool,
@@ -1580,6 +1583,23 @@ pub enum EnvCommands {
         /// Environment name to activate
         environment: String,
     },
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum EnvExportFormat {
+    Shell,
+    Json,
+    Dotenv,
+}
+
+impl EnvExportFormat {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Shell => "shell",
+            Self::Json => "json",
+            Self::Dotenv => "dotenv",
+        }
+    }
 }
 
 /// Sub-commands for the `webhook` group
@@ -3133,13 +3153,19 @@ pub async fn dispatch_command(
         }
         // ── Environment variable management (#843) ───────────────────────────
         Commands::Env { action } => match action {
-            EnvCommands::Set { name, value, env } => {
+            EnvCommands::Set {
+                name,
+                value,
+                env,
+                show_value,
+            } => {
                 log::debug!(
-                    "Command: env set | name={} env={:?}",
+                    "Command: env set | name={} env={:?} show_value={}",
                     name,
-                    env
+                    env,
+                    show_value
                 );
-                env::set_var(&name, &value, env.as_deref())?;
+                env::set_var(&name, &value, env.as_deref(), show_value)?;
             }
             EnvCommands::Get { name, env, json } => {
                 log::debug!(
@@ -3165,7 +3191,11 @@ pub async fn dispatch_command(
                 );
                 env::list_vars(env.as_deref(), all, merged, json)?;
             }
-            EnvCommands::Copy { from, to, overwrite } => {
+            EnvCommands::Copy {
+                from,
+                to,
+                overwrite,
+            } => {
                 log::debug!(
                     "Command: env copy | from={} to={} overwrite={}",
                     from,
@@ -3175,21 +3205,21 @@ pub async fn dispatch_command(
                 env::copy_env(&from, &to, overwrite)?;
             }
             EnvCommands::Delete { name, env } => {
-                log::debug!(
-                    "Command: env delete | name={} env={:?}",
-                    name,
-                    env
-                );
+                log::debug!("Command: env delete | name={} env={:?}", name, env);
                 env::delete_var(&name, env.as_deref())?;
             }
-            EnvCommands::Export { env, format, merged } => {
+            EnvCommands::Export {
+                env,
+                format,
+                merged,
+            } => {
                 log::debug!(
-                    "Command: env export | env={:?} format={} merged={}",
+                    "Command: env export | env={:?} format={:?} merged={}",
                     env,
                     format,
                     merged
                 );
-                env::export_env(env.as_deref(), &format, merged)?;
+                env::export_env(env.as_deref(), format.as_str(), merged)?;
             }
             EnvCommands::Switch { environment } => {
                 log::debug!("Command: env switch | environment={}", environment);
@@ -3244,5 +3274,35 @@ mod verbose_flag_tests {
     fn verbose_works_after_subcommand_when_global() {
         let cli = parse(&["soroban-registry", "version", "-vv"]);
         assert_eq!(cli.verbose, 2);
+    }
+
+    #[test]
+    fn env_export_rejects_invalid_format() {
+        let err = Cli::try_parse_from(["soroban-registry", "env", "export", "--format", "invalid"])
+            .expect_err("CLI should reject invalid export format");
+
+        assert!(
+            err.to_string().contains("possible values"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn env_set_parses_show_value_flag() {
+        let cli = parse(&[
+            "soroban-registry",
+            "env",
+            "set",
+            "API_KEY",
+            "secret",
+            "--show-value",
+        ]);
+
+        match cli.command {
+            Commands::Env {
+                action: EnvCommands::Set { show_value, .. },
+            } => assert!(show_value),
+            _ => panic!("expected env set command"),
+        }
     }
 }
