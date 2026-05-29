@@ -74,12 +74,51 @@ This starts PostgreSQL, the backend API, and the Next.js frontend with sensible 
 
 ### Database
 
+The backend uses SQLx's compile-time-checked query macros (`sqlx::query!`,
+`sqlx::query_as!`, `sqlx::query_scalar!`). They require **either** a live
+database reachable at `DATABASE_URL` **or** prepared offline query data under
+`backend/.sqlx/` (`SQLX_OFFLINE=true`). Without one of these, `cargo build`
+fails with errors like *"set `DATABASE_URL` to use query macros online, or run
+`cargo sqlx prepare` to update the query cache"*.
+
 ```bash
+# 1. Create the database
 createdb soroban_registry
+
+# 2. Export DATABASE_URL — needed at compile time AND at runtime
 export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/soroban_registry"
 
+# 3. Install the SQLx CLI (one-time)
+cargo install sqlx-cli --no-default-features --features rustls,postgres
+
+# 4. Apply migrations so the schema matches what the query macros expect
 sqlx migrate run --source database/migrations
+
+# 5. (Optional) Verify the environment is ready to build
+./scripts/check-sqlx-env.sh
 ```
+
+#### Building without a live database (offline mode)
+
+If your build environment cannot reach a Postgres instance (e.g. some CI
+runners, contributor laptops), generate offline query metadata once from a
+machine that can:
+
+```bash
+# From the backend workspace, with DATABASE_URL pointing at a fully
+# migrated database
+cd backend
+cargo sqlx prepare --workspace -- --all-targets
+git add .sqlx
+```
+
+Then anyone (or any CI job) can build without a database by setting:
+
+```bash
+export SQLX_OFFLINE=true
+```
+
+Re-run `cargo sqlx prepare` whenever a query macro or migration changes.
 
 ### Persistent PostgreSQL
 

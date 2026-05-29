@@ -77,6 +77,19 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
           restore-keys: ${{ runner.os }}-cargo-
 
+      # SQLx's `query!` macros connect to DATABASE_URL during `cargo build`
+      # to validate SQL against the live schema. The schema must exist
+      # BEFORE clippy/test/build, so install sqlx-cli and run migrations
+      # against the CI Postgres service first.
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --version 0.8.6 --no-default-features --features rustls,postgres --locked
+
+      - name: Verify SQLx build environment
+        run: bash scripts/check-sqlx-env.sh
+
+      - name: Apply database migrations
+        run: sqlx migrate run --source database/migrations
+
       - name: Check formatting (backend)
         working-directory: backend
         run: cargo fmt --all -- --check
