@@ -1539,9 +1539,9 @@ pub async fn list_contracts(
 
     if let Some(q) = &params.query {
         let like = format!("%{}%", q.to_ascii_lowercase());
-        qb.push(" AND (lower(c.name) LIKE ");
-        qb.push_bind(like.clone());
-        qb.push(" OR lower(COALESCE(c.description, '')) LIKE ");
+        qb.push(" AND (c.search_vector @@ plainto_tsquery('english', ");
+        qb.push_bind(q);
+        qb.push(") OR lower(c.contract_id) LIKE ");
         qb.push_bind(like);
         qb.push(")");
     }
@@ -1718,9 +1718,9 @@ pub async fn list_contracts(
     }
     if let Some(q) = &params.query {
         let like = format!("%{}%", q.to_ascii_lowercase());
-        count_qb.push(" AND (lower(c.name) LIKE ");
-        count_qb.push_bind(like.clone());
-        count_qb.push(" OR lower(COALESCE(c.description, '')) LIKE ");
+        count_qb.push(" AND (c.search_vector @@ plainto_tsquery('english', ");
+        count_qb.push_bind(q);
+        count_qb.push(") OR lower(c.contract_id) LIKE ");
         count_qb.push_bind(like);
         count_qb.push(")");
     }
