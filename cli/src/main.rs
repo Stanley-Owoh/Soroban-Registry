@@ -43,6 +43,7 @@ mod migration;
 mod multisig;
 mod net;
 mod network;
+mod notification;
 mod package_signing;
 mod patch;
 mod plugins;
