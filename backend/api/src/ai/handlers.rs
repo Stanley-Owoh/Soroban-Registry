@@ -292,12 +292,12 @@ pub async fn analyze_contract_handler(
     })?;
 
     // Fetch contract code from source storage
-    let contract_code = sqlx::query_scalar!(
-        "SELECT source_code FROM verifications 
-         WHERE contract_id = $1 AND status = 'verified' 
+    let contract_code = sqlx::query_scalar::<_, Option<String>>(
+        "SELECT source_code FROM verifications
+         WHERE contract_id = $1 AND status = 'verified'
          ORDER BY verified_at DESC LIMIT 1",
-        contract_uuid
     )
+    .bind(contract_uuid)
     .fetch_optional(&state.db)
     .await
     .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "DB_ERROR", e.to_string()))?
@@ -379,12 +379,12 @@ pub async fn check_vulnerabilities_handler(
         ApiError::bad_request_with("INVALID_CONTRACT_ID", "Invalid contract ID format")
     })?;
 
-    let contract_code = sqlx::query_scalar!(
-        "SELECT source_code FROM verifications 
-         WHERE contract_id = $1 AND status = 'verified' 
+    let contract_code = sqlx::query_scalar::<_, Option<String>>(
+        "SELECT source_code FROM verifications
+         WHERE contract_id = $1 AND status = 'verified'
          ORDER BY verified_at DESC LIMIT 1",
-        contract_uuid
     )
+    .bind(contract_uuid)
     .fetch_optional(&state.db)
     .await
     .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "DB_ERROR", e.to_string()))?
@@ -440,12 +440,12 @@ pub async fn explain_contract_handler(
         ApiError::bad_request_with("INVALID_CONTRACT_ID", "Invalid contract ID format")
     })?;
 
-    let contract_code = sqlx::query_scalar!(
-        "SELECT source_code FROM verifications 
-         WHERE contract_id = $1 AND status = 'verified' 
+    let contract_code = sqlx::query_scalar::<_, Option<String>>(
+        "SELECT source_code FROM verifications
+         WHERE contract_id = $1 AND status = 'verified'
          ORDER BY verified_at DESC LIMIT 1",
-        contract_uuid
     )
+    .bind(contract_uuid)
     .fetch_optional(&state.db)
     .await
     .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "DB_ERROR", e.to_string()))?
@@ -501,12 +501,12 @@ pub async fn suggest_code_handler(
         ApiError::bad_request_with("INVALID_CONTRACT_ID", "Invalid contract ID format")
     })?;
 
-    let contract_code = sqlx::query_scalar!(
-        "SELECT source_code FROM verifications 
-         WHERE contract_id = $1 AND status = 'verified' 
+    let contract_code = sqlx::query_scalar::<_, Option<String>>(
+        "SELECT source_code FROM verifications
+         WHERE contract_id = $1 AND status = 'verified'
          ORDER BY verified_at DESC LIMIT 1",
-        contract_uuid
     )
+    .bind(contract_uuid)
     .fetch_optional(&state.db)
     .await
     .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "DB_ERROR", e.to_string()))?

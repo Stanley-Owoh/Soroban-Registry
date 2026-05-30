@@ -2,7 +2,14 @@
 //!
 //! Verifies a deployed contract's authenticity against the on-chain registry.
 //! Displays verification status, security scan results, and audit/review info.
+//!
+//! Features:
+//! - Single contract verification with caching (24-hour TTL)
+//! - Batch verification for multiple contracts (--batch flag)
+//! - Strict mode (--strict) to fail on any warning or error
+//! - Detailed verification reports with audit information
 
+use crate::cache;
 use crate::net::RequestBuilderExt;
 use anyhow::{Context, Result};
 use colored::Colorize;
@@ -54,48 +61,264 @@ pub struct AuditInfo {
 
 // ── Main entry point ─────────────────────────────────────────────────────────
 
-/// `soroban-registry contract verify <address> --network <network> [--json]`
-pub async fn run(api_url: &str, address: &str, network: &str, json: bool) -> Result<()> {
+/// `soroban-registry contract verify <address> --network <network> [--json] [--strict] [--batch] [--no-cache]`
+///
+/// # Parameters
+/// - `api_url`: Registry API base URL
+/// - `address`: Contract address or comma-separated list for batch mode
+/// - `network`: Stellar network (mainnet | testnet | futurenet)
+/// - `json`: Output as JSON instead of human-readable format
+/// - `strict`: Fail if any warnings or errors are found
+/// - `batch`: Process multiple contracts (comma-separated in address)
+/// - `no_cache`: Skip cache and always fetch fresh data
+pub async fn run(
+    api_url: &str,
+    address: &str,
+    network: &str,
+    json: bool,
+    strict: bool,
+    batch: bool,
+    no_cache: bool,
+) -> Result<()> {
     log::debug!(
-        "contract verify | address={} network={} api_url={}",
+        "contract verify | address={} network={} batch={} strict={} no_cache={} api_url={}",
         address,
         network,
+        batch,
+        strict,
+        no_cache,
         api_url
     );
 
+    // Handle batch verification if enabled
+    if batch {
+        return run_batch(api_url, address, network, json, strict, no_cache).await;
+    }
+
+    // Single contract verification
+    verify_single_contract(api_url, address, network, json, strict, no_cache).await
+}
+
+/// Verify a single contract with optional caching
+async fn verify_single_contract(
+    api_url: &str,
+    address: &str,
+    network: &str,
+    json: bool,
+    strict: bool,
+    no_cache: bool,
+) -> Result<()> {
     let client = crate::net::client();
 
-    // ── 1. Fetch contract from registry by on-chain address ──────────────────
+    // ── 1. Try cache first (if not disabled)
+    if !no_cache {
+        if let Ok(Some(cached)) = cache::get(address, network) {
+            if !json {
+                println!("{} Loaded from cache", "◀".cyan());
+            }
+
+            let result = serde_json::from_value::<VerificationResult>(cached.result.clone())
+                .unwrap_or_else(|_| VerificationResult::default());
+
+            if json {
+                print_json(&result, &cached.detail, &json!({}))?;
+            } else {
+                print_human(&result, &cached.detail);
+            }
+
+            // Check strict mode
+            if strict && (!result.errors.is_empty() || !result.warnings.is_empty()) {
+                anyhow::bail!("Verification has issues (strict mode enabled)");
+            }
+
+            return Ok(());
+        }
+    }
+
+    // ── 2. Fetch contract from registry by on-chain address ──────────────────
     let mut contract = fetch_contract(api_url, &client, address, network, json).await?;
     if contract.is_null() {
         return Ok(());
     }
 
-    // ── 2. Initiate verification (source verify when available; fallback batch verify)
+    // ── 3. Initiate verification (source verify when available; fallback batch verify)
     if !json {
         println!("{} Initiating verification...", "•".cyan().bold());
     }
     let initiation = initiate_verification(api_url, &client, &contract, address).await?;
 
-    // ── 3. Wait for completion when backend reports pending/in-progress
+    // ── 4. Wait for completion when backend reports pending/in-progress
     contract =
         wait_for_verification_completion(api_url, &client, address, network, &initiation).await?;
 
-    // ── 4. Build result with status/errors/warnings
+    // ── 5. Build result with status/errors/warnings
     let result = build_result(&contract, &initiation, address, network);
 
-    // ── 5. Fetch verification detail (security scan + audit)
+    // ── 6. Fetch verification detail (security scan + audit)
     let detail = fetch_detail(api_url, &client, &contract).await;
 
-    // ── 6. Output
+    // ── 7. Cache the result (if not disabled)
+    if !no_cache {
+        let _ = cache::set(
+            address,
+            network,
+            serde_json::to_value(&result)?,
+            detail.clone(),
+        );
+    }
+
+    // ── 8. Output
     if json {
         print_json(&result, &detail, &initiation)?;
     } else {
-        println!("{} Verification initiated successfully", "✓".green().bold());
         print_human(&result, &detail);
     }
 
+    // ── 9. Check strict mode
+    if strict && (!result.errors.is_empty() || !result.warnings.is_empty()) {
+        anyhow::bail!(
+            "Verification completed with {} error(s) and {} warning(s) (strict mode enabled)",
+            result.errors.len(),
+            result.warnings.len()
+        );
+    }
+
     Ok(())
+}
+
+/// Run batch verification for multiple contracts
+async fn run_batch(
+    api_url: &str,
+    addresses_str: &str,
+    network: &str,
+    json: bool,
+    strict: bool,
+    no_cache: bool,
+) -> Result<()> {
+    // Parse addresses
+    let addresses: Vec<&str> = addresses_str
+        .split(',')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    if addresses.is_empty() {
+        anyhow::bail!("No contract addresses provided for batch verification");
+    }
+
+    if addresses.len() > 50 {
+        anyhow::bail!(
+            "Batch size {} exceeds maximum of 50 contracts",
+            addresses.len()
+        );
+    }
+
+    if !json {
+        println!("{}", "Batch Contract Verification".bold().cyan());
+        println!("{}", "═".repeat(60).cyan());
+        println!("  {}: {}", "Contracts".bold(), addresses.len());
+        println!("  {}: {}", "Network".bold(), network.bright_blue());
+        println!("  {}: {}", "Strict Mode".bold(), if strict { "enabled" } else { "disabled" });
+        println!();
+    }
+
+    let mut results = Vec::new();
+    let mut batch_errors = Vec::new();
+    let mut batch_warnings = Vec::new();
+
+    for address in addresses {
+        if !json {
+            print!("  Verifying {}... ", address.bright_black());
+        }
+
+        match verify_single_contract(api_url, address, network, true, false, no_cache).await {
+            Ok(_) => {
+                // Extract result from single verification
+                if let Ok(Some(cached)) = cache::get(address, network) {
+                    let result = serde_json::from_value::<VerificationResult>(cached.result)
+                        .unwrap_or_else(|_| VerificationResult::default());
+                    
+                    batch_errors.extend(result.errors.clone());
+                    batch_warnings.extend(result.warnings.clone());
+                    
+                    if !json {
+                        let status = if result.is_verified { "✓".green() } else { "✗".red() };
+                        println!("{}", status);
+                    }
+                    results.push((address.to_string(), result));
+                }
+            }
+            Err(e) => {
+                if !json {
+                    println!("{}", "✗".red());
+                }
+                batch_errors.push(format!("Failed to verify {}: {}", address, e));
+            }
+        }
+    }
+
+    // Output batch results
+    if json {
+        let batch_result = json!({
+            "batch": {
+                "total": addresses.len(),
+                "network": network,
+                "strict_mode": strict,
+            },
+            "results": results.iter().map(|(_, r)| r).collect::<Vec<_>>(),
+            "summary": {
+                "verified": results.iter().filter(|(_, r)| r.is_verified).count(),
+                "unverified": results.iter().filter(|(_, r)| !r.is_verified).count(),
+                "total_errors": batch_errors.len(),
+                "total_warnings": batch_warnings.len(),
+            }
+        });
+        println!("{}", serde_json::to_string_pretty(&batch_result)?);
+    } else {
+        println!();
+        println!("{} Batch Results Summary", "═".repeat(60).cyan());
+        println!("  Verified: {}", results.iter().filter(|(_, r)| r.is_verified).count().to_string().green());
+        println!("  Unverified: {}", results.iter().filter(|(_, r)| !r.is_verified).count().to_string().red());
+        if !batch_errors.is_empty() {
+            println!("  Errors: {}", batch_errors.len().to_string().red());
+        }
+        if !batch_warnings.is_empty() {
+            println!("  Warnings: {}", batch_warnings.len().to_string().yellow());
+        }
+        println!();
+    }
+
+    // Check strict mode for batch
+    if strict && (!batch_errors.is_empty() || !batch_warnings.is_empty()) {
+        anyhow::bail!(
+            "Batch verification completed with {} error(s) and {} warning(s) (strict mode enabled)",
+            batch_errors.len(),
+            batch_warnings.len()
+        );
+    }
+
+    Ok(())
+}
+
+/// Default implementation for VerificationResult (used when parsing fails)
+impl Default for VerificationResult {
+    fn default() -> Self {
+        Self {
+            address: String::new(),
+            network: String::new(),
+            name: None,
+            is_verified: false,
+            verification_status: "unknown".to_string(),
+            errors: Vec::new(),
+            warnings: Vec::new(),
+            security_scan: None,
+            audit: None,
+            publisher: None,
+            wasm_hash: None,
+            verified_at: None,
+        }
+    }
+}
 }
 
 async fn fetch_contract(

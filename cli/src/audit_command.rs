@@ -1,11 +1,11 @@
 use anyhow::{Context, Result};
 use colored::Colorize;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use std::cmp::Ordering;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Severity {
     Low,
     Medium,
@@ -14,7 +14,7 @@ pub enum Severity {
 }
 
 impl Severity {
-    fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             Self::Low => "low",
             Self::Medium => "medium",
@@ -59,29 +59,29 @@ impl std::str::FromStr for Severity {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-struct AuditFinding {
-    severity: Severity,
-    title: String,
-    detail: String,
-    file: String,
-    category: String,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditFinding {
+    pub severity: Severity,
+    pub title: String,
+    pub detail: String,
+    pub file: String,
+    pub category: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
-struct AuditReport {
-    contract_path: String,
-    summary: AuditSummary,
-    findings: Vec<AuditFinding>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditReport {
+    pub contract_path: String,
+    pub summary: AuditSummary,
+    pub findings: Vec<AuditFinding>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-struct AuditSummary {
-    total_findings: usize,
-    critical: usize,
-    high: usize,
-    medium: usize,
-    low: usize,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditSummary {
+    pub total_findings: usize,
+    pub critical: usize,
+    pub high: usize,
+    pub medium: usize,
+    pub low: usize,
 }
 
 pub fn run(
@@ -156,7 +156,7 @@ pub fn run(
     Ok(())
 }
 
-fn collect_sources(path: &Path) -> Result<Vec<PathBuf>> {
+pub fn collect_sources(path: &Path) -> Result<Vec<PathBuf>> {
     if path.is_file() {
         return Ok(vec![path.to_path_buf()]);
     }
@@ -178,7 +178,7 @@ fn collect_sources(path: &Path) -> Result<Vec<PathBuf>> {
     Ok(files)
 }
 
-fn scan_source(path: &Path, content: &str, findings: &mut Vec<AuditFinding>) {
+pub fn scan_source(path: &Path, content: &str, findings: &mut Vec<AuditFinding>) {
     let file = path.display().to_string();
 
     if content.contains("unwrap(") || content.contains("expect(") {
@@ -300,4 +300,41 @@ fn to_markdown(report: &AuditReport) -> String {
         ));
     }
     out
+}
+
+pub fn run_to_report(contract_path: &str) -> Result<AuditReport> {
+    let sources = collect_sources(Path::new(contract_path))?;
+    let mut findings = Vec::new();
+
+    for source in sources {
+        let content = fs::read_to_string(&source)
+            .with_context(|| format!("Failed to read source file: {}", source.display()))?;
+        scan_source(&source, &content, &mut findings);
+    }
+
+    let summary = AuditSummary {
+        total_findings: findings.len(),
+        critical: findings
+            .iter()
+            .filter(|finding| finding.severity == Severity::Critical)
+            .count(),
+        high: findings
+            .iter()
+            .filter(|finding| finding.severity == Severity::High)
+            .count(),
+        medium: findings
+            .iter()
+            .filter(|finding| finding.severity == Severity::Medium)
+            .count(),
+        low: findings
+            .iter()
+            .filter(|finding| finding.severity == Severity::Low)
+            .count(),
+    };
+
+    Ok(AuditReport {
+        contract_path: contract_path.to_string(),
+        summary,
+        findings,
+    })
 }

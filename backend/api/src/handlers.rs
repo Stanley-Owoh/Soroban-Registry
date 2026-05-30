@@ -1379,12 +1379,19 @@ pub async fn get_contract_search_suggestions(
     tag = "Contracts"
 )]
 pub async fn list_tags(State(state): State<AppState>) -> ApiResult<Json<Value>> {
-    let rows = sqlx::query!(
-        "SELECT t.id, t.name, t.color, COUNT(ct.contract_id)::INT as usage_count \
+    #[derive(sqlx::FromRow)]
+    struct TagRow {
+        id: uuid::Uuid,
+        name: String,
+        color: Option<String>,
+        usage_count: Option<i32>,
+    }
+    let rows = sqlx::query_as::<_, TagRow>(
+        "SELECT t.id, t.name, t.color, COUNT(ct.contract_id)::INT AS usage_count \
          FROM tags t \
          LEFT JOIN contract_tags ct ON t.id = ct.tag_id \
          GROUP BY t.id \
-         ORDER BY usage_count DESC, t.name ASC"
+         ORDER BY usage_count DESC, t.name ASC",
     )
     .fetch_all(&state.db)
     .await
@@ -1608,15 +1615,22 @@ pub async fn list_contracts(
     // Fetch tags for these contracts
     let contract_ids: Vec<Uuid> = contracts.iter().map(|c| c.id).collect();
     if !contract_ids.is_empty() {
-        let tag_rows = match sqlx::query!(
+        #[derive(sqlx::FromRow)]
+        struct TagRow {
+            contract_id: Uuid,
+            id: Uuid,
+            name: String,
+            color: String,
+        }
+        let tag_rows = match sqlx::query_as::<_, TagRow>(
             r#"
             SELECT ct.contract_id, t.id, t.name, t.color
             FROM tags t
             JOIN contract_tags ct ON t.id = ct.tag_id
             WHERE ct.contract_id = ANY($1)
             "#,
-            &contract_ids
         )
+        .bind(&contract_ids)
         .fetch_all(&state.db)
         .await
         {
@@ -2126,10 +2140,17 @@ async fn fetch_contract_export_rows(
     // Fetch tags for these records
     let record_ids: Vec<Uuid> = records.iter().map(|r| r.id).collect();
     if !record_ids.is_empty() {
-        let tag_rows = match sqlx::query!(
+        #[derive(sqlx::FromRow)]
+        struct TagRow {
+            contract_id: Uuid,
+            id: Uuid,
+            name: String,
+            color: String,
+        }
+        let tag_rows = match sqlx::query_as::<_, TagRow>(
             "SELECT ct.contract_id, t.id, t.name, t.color FROM tags t JOIN contract_tags ct ON t.id = ct.tag_id WHERE ct.contract_id = ANY($1)",
-            &record_ids
         )
+        .bind(&record_ids)
         .fetch_all(&state.db)
         .await {
             Ok(rows) => rows,
@@ -2412,10 +2433,16 @@ pub async fn get_contract(
     };
 
     // Fetch tags
-    let tag_rows = match sqlx::query!(
+    #[derive(sqlx::FromRow)]
+    struct TagRow {
+        id: Uuid,
+        name: String,
+        color: String,
+    }
+    let tag_rows = match sqlx::query_as::<_, TagRow>(
         "SELECT t.id, t.name, t.color FROM tags t JOIN contract_tags ct ON t.id = ct.tag_id WHERE ct.contract_id = $1",
-        contract.id
     )
+    .bind(contract.id)
     .fetch_all(&state.db)
     .await {
         Ok(rows) => rows,
@@ -4988,14 +5015,13 @@ pub async fn update_contract_metadata(
     .await?;
 
     // Fetch before tags for audit log
-    let before_tag_rows = sqlx::query!(
+    let before_tag_names: Vec<String> = sqlx::query_scalar::<_, String>(
         "SELECT t.name FROM tags t JOIN contract_tags ct ON t.id = ct.tag_id WHERE ct.contract_id = $1",
-        before.id
     )
+    .bind(before.id)
     .fetch_all(&state.db)
     .await
     .map_err(|err| db_internal_error("fetch before tags", err))?;
-    let before_tag_names: Vec<String> = before_tag_rows.into_iter().map(|r| r.name).collect();
 
     let mut tx = state
         .db
@@ -5055,10 +5081,16 @@ pub async fn update_contract_metadata(
         after.tags = new_tags;
     } else {
         // Fetch existing tags for after response
-        let after_tag_rows = sqlx::query!(
+        #[derive(sqlx::FromRow)]
+        struct TagRow {
+            id: Uuid,
+            name: String,
+            color: String,
+        }
+        let after_tag_rows = sqlx::query_as::<_, TagRow>(
             "SELECT t.id, t.name, t.color FROM tags t JOIN contract_tags ct ON t.id = ct.tag_id WHERE ct.contract_id = $1",
-            after.id
         )
+        .bind(after.id)
         .fetch_all(&mut *tx)
         .await
         .map_err(|err| db_internal_error("fetch after tags", err))?;
@@ -6684,15 +6716,22 @@ pub async fn advanced_search_contracts(
     // Fetch tags for these contracts (keeps output consistent with list_contracts)
     let contract_ids: Vec<Uuid> = contracts.iter().map(|c| c.id).collect();
     if !contract_ids.is_empty() {
-        let tag_rows = sqlx::query!(
+        #[derive(sqlx::FromRow)]
+        struct TagRow {
+            contract_id: Uuid,
+            id: Uuid,
+            name: String,
+            color: String,
+        }
+        let tag_rows = sqlx::query_as::<_, TagRow>(
             r#"
             SELECT ct.contract_id, t.id, t.name, t.color
             FROM tags t
             JOIN contract_tags ct ON t.id = ct.tag_id
             WHERE ct.contract_id = ANY($1)
             "#,
-            &contract_ids
         )
+        .bind(&contract_ids)
         .fetch_all(&state.db)
         .await
         .map_err(|err| db_internal_error("fetch tags (advanced search)", err))?;

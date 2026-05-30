@@ -4,6 +4,7 @@
 pub mod anomaly_detector;
 pub mod event_listener;
 pub mod handlers;
+pub mod point_in_time;
 
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -80,10 +81,9 @@ impl StateMonitorService {
         let uuid = Uuid::parse_str(contract_id)
             .map_err(|_| anyhow::anyhow!("Invalid contract ID format"))?;
 
-        let changes = sqlx::query_as!(
-            StateChangeEntry,
+        let changes = sqlx::query_as::<_, StateChangeEntry>(
             r#"
-            SELECT 
+            SELECT
                 sh.id,
                 sh.contract_id,
                 sh.state_key,
@@ -100,9 +100,9 @@ impl StateMonitorService {
             ORDER BY sh.created_at DESC
             LIMIT $2
             "#,
-            uuid,
-            limit as i64
         )
+        .bind(uuid)
+        .bind(limit as i64)
         .fetch_all(&self.db)
         .await?;
 
@@ -122,8 +122,7 @@ impl StateMonitorService {
             (Some(cid_str), Some(sev)) => {
                 let cid = Uuid::parse_str(cid_str)
                     .map_err(|_| anyhow::anyhow!("Invalid contract ID format"))?;
-                sqlx::query_as!(
-                    AnomalyInfo,
+                sqlx::query_as::<_, AnomalyInfo>(
                     r#"
                     SELECT id, contract_id, anomaly_type, severity, description,
                            state_key, old_value, new_value, detected_at,
@@ -135,18 +134,17 @@ impl StateMonitorService {
                     ORDER BY detected_at DESC
                     LIMIT $3
                     "#,
-                    cid,
-                    sev,
-                    limit as i64
                 )
+                .bind(cid)
+                .bind(sev)
+                .bind(limit as i64)
                 .fetch_all(&self.db)
                 .await?
             }
             (Some(cid_str), None) => {
                 let cid = Uuid::parse_str(cid_str)
                     .map_err(|_| anyhow::anyhow!("Invalid contract ID format"))?;
-                sqlx::query_as!(
-                    AnomalyInfo,
+                sqlx::query_as::<_, AnomalyInfo>(
                     r#"
                     SELECT id, contract_id, anomaly_type, severity, description,
                            state_key, old_value, new_value, detected_at,
@@ -157,15 +155,14 @@ impl StateMonitorService {
                     ORDER BY detected_at DESC
                     LIMIT $2
                     "#,
-                    cid,
-                    limit as i64
                 )
+                .bind(cid)
+                .bind(limit as i64)
                 .fetch_all(&self.db)
                 .await?
             }
             (None, Some(sev)) => {
-                sqlx::query_as!(
-                    AnomalyInfo,
+                sqlx::query_as::<_, AnomalyInfo>(
                     r#"
                     SELECT id, contract_id, anomaly_type, severity, description,
                            state_key, old_value, new_value, detected_at,
@@ -176,15 +173,14 @@ impl StateMonitorService {
                     ORDER BY detected_at DESC
                     LIMIT $2
                     "#,
-                    sev,
-                    limit as i64
                 )
+                .bind(sev)
+                .bind(limit as i64)
                 .fetch_all(&self.db)
                 .await?
             }
             (None, None) => {
-                sqlx::query_as!(
-                    AnomalyInfo,
+                sqlx::query_as::<_, AnomalyInfo>(
                     r#"
                     SELECT id, contract_id, anomaly_type, severity, description,
                            state_key, old_value, new_value, detected_at,
@@ -194,8 +190,8 @@ impl StateMonitorService {
                     ORDER BY detected_at DESC
                     LIMIT $1
                     "#,
-                    limit as i64
                 )
+                .bind(limit as i64)
                 .fetch_all(&self.db)
                 .await?
             }
@@ -213,17 +209,17 @@ impl StateMonitorService {
         let uuid = Uuid::parse_str(anomaly_id)
             .map_err(|_| anyhow::anyhow!("Invalid anomaly ID format"))?;
 
-        sqlx::query!(
+        sqlx::query(
             r#"
-            UPDATE state_anomalies 
-            SET is_resolved = TRUE, 
+            UPDATE state_anomalies
+            SET is_resolved = TRUE,
                 resolved_at = NOW(),
                 resolution_notes = $1
             WHERE id = $2
             "#,
-            resolution_notes,
-            uuid
         )
+        .bind(resolution_notes)
+        .bind(uuid)
         .execute(&self.db)
         .await?;
 

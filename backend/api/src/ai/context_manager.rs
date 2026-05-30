@@ -21,22 +21,19 @@ impl ContextManager {
         contract_id: Option<Uuid>,
         context_type: &str,
     ) -> sqlx::Result<ChatSession> {
-        let session = sqlx::query_as!(
-            ChatSession,
+        sqlx::query_as::<_, ChatSession>(
             r#"
             INSERT INTO ai_chat_sessions (user_id, contract_id, context_type)
             VALUES ($1, $2, $3)
-            RETURNING id, user_id, contract_id, session_title, context_type as "context_type!", 
+            RETURNING id, user_id, contract_id, session_title, context_type,
                       created_at, updated_at, message_count, is_active
             "#,
-            user_id,
-            contract_id,
-            context_type
         )
+        .bind(user_id)
+        .bind(contract_id)
+        .bind(context_type)
         .fetch_one(&self.db)
-        .await?;
-
-        Ok(session)
+        .await
     }
 
     /// Get session with messages
@@ -44,25 +41,25 @@ impl ContextManager {
         &self,
         session_id: Uuid,
     ) -> sqlx::Result<(ChatSession, Vec<ChatMessage>)> {
-        let session = sqlx::query_as!(
-            ChatSession,
-            "SELECT id, user_id, contract_id, session_title, context_type as \"context_type!\", created_at, updated_at, message_count, is_active FROM ai_chat_sessions WHERE id = $1",
-            session_id
+        let session = sqlx::query_as::<_, ChatSession>(
+            "SELECT id, user_id, contract_id, session_title, context_type, \
+             created_at, updated_at, message_count, is_active \
+             FROM ai_chat_sessions WHERE id = $1",
         )
+        .bind(session_id)
         .fetch_one(&self.db)
         .await?;
 
-        let messages = sqlx::query_as!(
-            ChatMessage,
+        let messages = sqlx::query_as::<_, ChatMessage>(
             r#"
-            SELECT id, session_id, role, content, contract_code_snippet, 
+            SELECT id, session_id, role, content, contract_code_snippet,
                    token_count, model_used, response_time_ms, created_at, metadata
-            FROM ai_chat_messages 
-            WHERE session_id = $1 
+            FROM ai_chat_messages
+            WHERE session_id = $1
             ORDER BY created_at ASC
             "#,
-            session_id
         )
+        .bind(session_id)
         .fetch_all(&self.db)
         .await?;
 
@@ -81,23 +78,23 @@ impl ContextManager {
         response_time_ms: Option<i32>,
         metadata: Option<Value>,
     ) -> sqlx::Result<()> {
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO ai_chat_messages (
-                session_id, role, content, contract_code_snippet, 
+                session_id, role, content, contract_code_snippet,
                 token_count, model_used, response_time_ms, metadata
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             "#,
-            session_id,
-            role,
-            content,
-            contract_code_snippet,
-            token_count,
-            model_used,
-            response_time_ms,
-            metadata
         )
+        .bind(session_id)
+        .bind(role)
+        .bind(content)
+        .bind(contract_code_snippet)
+        .bind(token_count)
+        .bind(model_used)
+        .bind(response_time_ms)
+        .bind(metadata)
         .execute(&self.db)
         .await?;
 
@@ -110,23 +107,20 @@ impl ContextManager {
         user_id: Uuid,
         limit: i32,
     ) -> sqlx::Result<Vec<ChatSession>> {
-        let sessions = sqlx::query_as!(
-            ChatSession,
+        sqlx::query_as::<_, ChatSession>(
             r#"
-            SELECT id, user_id, contract_id, session_title, context_type as "context_type!", 
+            SELECT id, user_id, contract_id, session_title, context_type,
                    created_at, updated_at, message_count, is_active
-            FROM ai_chat_sessions 
-            WHERE user_id = $1 
-            ORDER BY updated_at DESC 
+            FROM ai_chat_sessions
+            WHERE user_id = $1
+            ORDER BY updated_at DESC
             LIMIT $2
             "#,
-            user_id,
-            limit as i64
         )
+        .bind(user_id)
+        .bind(limit as i64)
         .fetch_all(&self.db)
-        .await?;
-
-        Ok(sessions)
+        .await
     }
 
     /// Get contract context from database
@@ -134,31 +128,47 @@ impl ContextManager {
         &self,
         contract_id: Uuid,
     ) -> sqlx::Result<Option<ContractContext>> {
-        let result = sqlx::query_as!(
-            ContractContext,
+        // ContractContext doesn't derive FromRow (and has a `network`
+        // field this query doesn't select), so we fetch into a
+        // private row struct and convert.
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            contract_id: String,
+            contract_name: String,
+            description: Option<String>,
+            category: Option<String>,
+            tags: Vec<String>,
+        }
+        let row = sqlx::query_as::<_, Row>(
             r#"
-            SELECT 
-                c.id::text as "contract_id!",
-                c.name as "contract_name!",
-                ''::text as "contract_code!",
-                c.description as "description?",
-                c.category as "category?",
+            SELECT
+                c.id::text AS contract_id,
+                c.name AS contract_name,
+                c.description,
+                c.category,
                 COALESCE(
                     array_agg(t.name) FILTER (WHERE t.id IS NOT NULL),
                     ARRAY[]::text[]
-                ) as "tags!: Vec<String>"
+                ) AS tags
             FROM contracts c
             LEFT JOIN contract_tags ct ON c.id = ct.contract_id
             LEFT JOIN tags t ON ct.tag_id = t.id
             WHERE c.id = $1
             GROUP BY c.id, c.name, c.description, c.category
             "#,
-            contract_id
         )
+        .bind(contract_id)
         .fetch_optional(&self.db)
         .await?;
 
-        Ok(result)
+        Ok(row.map(|r| ContractContext {
+            contract_id: r.contract_id,
+            contract_name: r.contract_name,
+            contract_code: String::new(),
+            description: r.description,
+            category: r.category,
+            tags: r.tags,
+        }))
     }
 
     /// Update session title based on first message
@@ -173,13 +183,11 @@ impl ContextManager {
             first_message.to_string()
         };
 
-        sqlx::query!(
-            "UPDATE ai_chat_sessions SET session_title = $1 WHERE id = $2",
-            title,
-            session_id
-        )
-        .execute(&self.db)
-        .await?;
+        sqlx::query("UPDATE ai_chat_sessions SET session_title = $1 WHERE id = $2")
+            .bind(title)
+            .bind(session_id)
+            .execute(&self.db)
+            .await?;
 
         Ok(())
     }

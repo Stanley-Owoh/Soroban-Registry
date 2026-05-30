@@ -1,6 +1,7 @@
 use crate::net::RequestBuilderExt;
 use anyhow::{Context, Result};
 use colored::Colorize;
+use reqwest::StatusCode;
 use serde_json::json;
 use std::cmp::Ordering;
 
@@ -333,6 +334,118 @@ fn print_csv(contracts: &[ContractListItem]) {
             tags
         );
     }
+}
+
+pub async fn info(api_url: &str, id: &str, json_output: bool) -> Result<()> {
+    let t0 = std::time::Instant::now();
+    let client = crate::net::client();
+    
+    // Assuming the backend accepts query params to eagerly load relationships
+    let url = format!("{}/api/contracts/{}?include_stats=true&include_versions=true&include_abi=true", api_url, id);
+    
+    let response = client
+        .get(&url)
+        .send_with_retry()
+        .await
+        .context("Failed to connect to the registry API")?;
+
+    if response.status() == StatusCode::NOT_FOUND {
+        anyhow::bail!("Contract not found for address or slug: {}", id.bold());
+    } else if !response.status().is_success() {
+        anyhow::bail!("Failed to fetch contract info: HTTP {}", response.status());
+    }
+
+    let data: serde_json::Value = response.json().await.context("Invalid JSON response from server")?;
+
+    if json_output {
+        println!("{}", serde_json::to_string_pretty(&data)?);
+        return Ok(());
+    }
+
+    println!("\n{}", "Contract Overview".bold().cyan());
+    println!("{}", "=".repeat(80).cyan());
+
+    let name = data["name"].as_str().unwrap_or("Unknown");
+    let address = data["contract_id"].as_str().unwrap_or(id);
+    let network = data["network"].as_str().unwrap_or("Unknown");
+    let category = data["category"].as_str().unwrap_or("None");
+    let created = data["created_at"].as_str().unwrap_or("Unknown");
+    let is_verified = data["is_verified"].as_bool().unwrap_or(false);
+
+    println!("{:<15} {}", "Name:".bold(), name);
+    println!("{:<15} {}", "Address:".bold(), address.bright_black());
+    println!("{:<15} {}", "Network:".bold(), network.bright_blue());
+    println!("{:<15} {}", "Category:".bold(), category);
+    println!("{:<15} {}", "Created:".bold(), created);
+
+    if let Some(desc) = data["description"].as_str() {
+        if !desc.is_empty() {
+            println!("{:<15} {}", "Description:".bold(), desc);
+        }
+    }
+
+    let status_str = if is_verified {
+        "✓ Verified".green()
+    } else {
+        "○ Unverified".yellow()
+    };
+    println!("{:<15} {}", "Status:".bold(), status_str);
+
+    if let Some(stats) = data.get("stats") {
+        println!("\n{}", "Activity & Stats".bold().magenta());
+        println!("{}", "-".repeat(40).magenta());
+        
+        let deployments = stats["deployments_count"].as_u64().unwrap_or(0);
+        let interactions = stats["interactions_count"].as_u64().unwrap_or(0);
+        
+        println!("{:<15} {}", "Deployments:".bold(), deployments);
+        println!("{:<15} {}", "Interactions:".bold(), interactions);
+    }
+
+    if let Some(abi) = data.get("abi").and_then(|a| a.as_array()) {
+        println!("\n{}", "ABI Methods Preview".bold().yellow());
+        println!("{}", "-".repeat(40).yellow());
+        
+        let functions: Vec<_> = abi.iter().filter(|item| item["type"] == "function").collect();
+        if functions.is_empty() {
+            println!("  No exposed functions found.");
+        } else {
+            for func in functions.iter().take(5) {
+                let func_name = func["name"].as_str().unwrap_or("unknown");
+                println!("  {} {}", "fn".magenta(), func_name.green());
+            }
+            if functions.len() > 5 {
+                println!("  ... and {} more methods", functions.len() - 5);
+            }
+        }
+    }
+
+    if let Some(versions) = data.get("versions").and_then(|v| v.as_array()) {
+        println!("\n{}", "Version History".bold().blue());
+        println!("{}", "-".repeat(40).blue());
+        
+        if versions.is_empty() {
+            println!("  No version history available.");
+        } else {
+            for (i, version) in versions.iter().take(3).enumerate() {
+                let ver_str = version["version"].as_str().unwrap_or("unknown");
+                let date = version["published_at"].as_str().unwrap_or("unknown");
+                let current_tag = if i == 0 { " (latest)".bright_black() } else { "".normal() };
+                
+                println!("  • v{} - {}{}", ver_str.cyan(), date, current_tag);
+            }
+        }
+    }
+
+    let elapsed = t0.elapsed();
+    println!("\n{}", "=".repeat(80).cyan());
+    println!("{}", format!("Retrieved in {:?}", elapsed).bright_black());
+
+    if elapsed.as_millis() > 300 {
+        log::warn!("Response time exceeded 300ms SLA ({:?})", elapsed);
+    }
+
+    Ok(())
 }
 
 pub async fn run_details(

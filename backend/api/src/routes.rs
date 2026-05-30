@@ -8,6 +8,9 @@ use crate::{
     contract_stats_handlers, contributor_handlers, custom_metrics_handlers, dependency_handlers,
     deprecation_handlers, error_logging, formal_verification_handlers, gas_estimation_handlers,
     governance_handlers, graph_analysis_handlers, handlers, interoperability_handlers,
+    marketplace::{license_handlers as mp_license, metering as mp_metering,
+                  pricing_handlers as mp_pricing, stripe_handlers as mp_stripe,
+                  usdc_handlers as mp_usdc},
     metrics_handler, migration_handlers, mutation_testing_handlers, org_handlers, patch_handlers,
     performance_handlers, plugin_marketplace_handlers, publisher_verification_handlers,
     recommendation_handlers, resource_handlers, search_postgres, security_scan_handlers,
@@ -34,6 +37,7 @@ pub fn application_routes(_schema: crate::graphql::schema::RegistrySchema) -> Ro
     Router::new()
         // Identity and marketplace primitives
         .merge(auth_routes())
+        .merge(marketplace_routes())
         .merge(plugin_routes())
         .merge(organization_routes())
         .merge(publisher_routes())
@@ -130,6 +134,70 @@ pub fn plugin_routes() -> Router<AppState> {
         .route(
             "/api/plugins/:name/:version",
             get(plugin_marketplace_handlers::get_plugin_manifest),
+        )
+}
+
+/// Marketplace Phase 1 — paid contract pricing + Ed25519 license issuance,
+/// validation, revocation, and usage metering. Payment-provider integration
+/// (Stripe, USDC) lives in later phases and will hang off the same routes.
+pub fn marketplace_routes() -> Router<AppState> {
+    Router::new()
+        // Pricing plans per contract
+        .route(
+            "/api/contracts/:contract_id/pricing-plans",
+            get(mp_pricing::list_plans).post(mp_pricing::create_plan),
+        )
+        .route(
+            "/api/contracts/:contract_id/pricing-plans/:plan_id",
+            patch(mp_pricing::update_plan),
+        )
+        // License issuance + lifecycle
+        .route(
+            "/api/contracts/:contract_id/licenses",
+            post(mp_license::issue_license),
+        )
+        .route(
+            "/api/marketplace/licenses",
+            get(mp_license::list_my_licenses),
+        )
+        .route(
+            "/api/marketplace/licenses/validate",
+            post(mp_license::validate_license),
+        )
+        .route(
+            "/api/marketplace/licenses/:jti/revoke",
+            post(mp_license::revoke_license),
+        )
+        .route(
+            "/api/marketplace/license-pubkey",
+            get(mp_license::license_pubkey),
+        )
+        // Usage metering
+        .route(
+            "/api/marketplace/licenses/:jti/usage",
+            get(mp_metering::get_usage).post(mp_metering::record_usage),
+        )
+        // Phase 2 — Stripe checkout + webhook (idempotent by event id)
+        .route(
+            "/api/contracts/:contract_id/checkout",
+            post(mp_stripe::create_checkout),
+        )
+        .route(
+            "/api/marketplace/stripe/webhook",
+            post(mp_stripe::webhook),
+        )
+        // Phase 3 — USDC on Stellar: payment intents + confirm
+        .route(
+            "/api/contracts/:contract_id/usdc-intents",
+            post(mp_usdc::create_intent),
+        )
+        .route(
+            "/api/marketplace/usdc/confirm",
+            post(mp_usdc::confirm_intent),
+        )
+        .route(
+            "/api/marketplace/usdc-payments/:payment_id",
+            get(mp_usdc::get_intent),
         )
 }
 
@@ -336,6 +404,15 @@ pub fn contract_routes() -> Router<AppState> {
         .route(
             "/api/contracts/:id/state/history",
             get(state_monitor_handlers::get_state_history_handler),
+        )
+        // Point-in-time + diff state queries (derived from the change log)
+        .route(
+            "/api/contracts/:id/state-at",
+            get(state_monitor_handlers::get_state_at_handler),
+        )
+        .route(
+            "/api/contracts/:id/state-diff",
+            get(state_monitor_handlers::get_state_diff_handler),
         )
         .route(
             "/api/contracts/:id/anomalies",

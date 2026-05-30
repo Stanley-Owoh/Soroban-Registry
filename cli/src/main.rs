@@ -2,9 +2,14 @@
 
 mod analytics;
 mod analyze;
+mod auth;
 mod audit_command;
 mod backup;
 mod batch_ops;
+mod batch_audit;
+mod batch_deploy;
+mod batch_export;
+mod batch_import;
 mod batch_register;
 mod batch_verify;
 mod cicd;
@@ -13,12 +18,20 @@ mod commands;
 mod compare;
 mod config;
 mod contract_deploy;
+mod contract_risk;
+mod contract_register;
+mod api_key;
+mod contract_dependency;
+mod contract_highlight;
+mod contract_interaction;
 mod contract_verify;
 mod contracts;
 mod conversions;
+mod cache;
 mod coverage;
 mod dashboard;
 mod deploy;
+mod env;
 mod events;
 mod export;
 mod formal_verification;
@@ -31,6 +44,7 @@ mod migration;
 mod multisig;
 mod net;
 mod network;
+mod notification;
 mod package_signing;
 mod patch;
 mod plugins;
@@ -43,13 +57,14 @@ mod test_framework;
 mod track_deployment;
 mod upgrade;
 mod user_config;
+mod user_profile;
 mod verification;
 mod version;
 mod webhook;
 mod wizard;
 
 use anyhow::Result;
-use clap::{ArgAction, Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 use colored::Colorize;
 use patch::Severity;
 
@@ -202,6 +217,12 @@ pub enum Commands {
     Info {
         /// Contract ID or slug
         id: String,
+
+        #[arg(long)]
+        json: bool,
+
+        #[arg(long)]
+        raw: bool,
     },
 
     /// Search for contracts in the registry
@@ -479,8 +500,9 @@ pub enum Commands {
         minimize: bool,
     },
 
-    /// Profile contract execution performance
-    Profile {
+    /// Perf contract execution performance
+    #[command(name = "perf")]
+    Perf {
         /// Path to contract file
         contract_path: String,
 
@@ -503,6 +525,12 @@ pub enum Commands {
         /// Show recommendations
         #[arg(long, default_value = "true")]
         recommendations: bool,
+    },
+
+    /// Manage your user profile and publishing preferences (#841)
+    Profile {
+        #[command(subcommand)]
+        action: ProfileCommands,
     },
 
     /// Run integration tests
@@ -592,6 +620,12 @@ pub enum Commands {
     Config {
         #[command(subcommand)]
         action: ConfigSubcommands,
+    },
+
+    /// Manage authentication sessions and API tokens
+    Auth {
+        #[command(subcommand)]
+        action: AuthCommands,
     },
 
     /// Inspect and modify contract state (dev/test mutation only)
@@ -754,6 +788,13 @@ pub enum Commands {
         action: ContractCommands,
     },
 
+    /// Manage API keys for programmatic access (#842)
+    #[command(name = "api-key")]
+    ApiKey {
+        #[command(subcommand)]
+        action: ApiKeyCommands,
+    },
+
     /// Verify multiple contracts in a single atomic batch (all succeed or all rollback)
     BatchVerify {
         /// Comma-separated list of contract IDs to verify.
@@ -813,6 +854,96 @@ pub enum Commands {
         json: bool,
     },
 
+    /// Audit multiple contracts in batch for security and best practices
+    BatchAudit {
+        /// File containing contract paths (one per line) or comma-separated paths
+        file: String,
+        /// Report format: text, json, markdown
+        #[arg(long, default_value = "text")]
+        format: String,
+        /// Output directory for generated reports
+        #[arg(long)]
+        output_dir: Option<String>,
+        /// Fail on findings at or above this severity
+        #[arg(long)]
+        fail_on: Option<String>,
+        /// Show only high and critical findings
+        #[arg(long)]
+        high_risk: bool,
+        /// Audit profile: basic, standard, comprehensive
+        #[arg(long, default_value = "standard")]
+        profile: String,
+        /// Export audit findings to a file
+        #[arg(long)]
+        export: Option<String>,
+        /// Output results as machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Deploy a contract WASM to multiple networks
+    BatchDeploy {
+        /// Path to the WASM file
+        wasm_file: String,
+        /// Comma-separated target networks (mainnet,testnet,futurenet)
+        #[arg(long, default_value = "testnet")]
+        networks: String,
+        /// Signer Stellar address or secret
+        #[arg(long)]
+        signer: String,
+        /// Stop and report failure if any deployment fails (no on-chain rollback)
+        #[arg(long)]
+        atomic: bool,
+        /// Output results as machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Export multiple contracts in bulk
+    BatchExport {
+        /// Output directory for exported files
+        output_dir: String,
+        /// Filter query (e.g. network=testnet or category=defi)
+        #[arg(long)]
+        filter: Option<String>,
+        /// Output format: json, csv, archive
+        #[arg(long, default_value = "json")]
+        format: String,
+        /// Organize output by network/category subdirectories
+        #[arg(long)]
+        organize: bool,
+        /// Compress the output directory into a .tar.gz
+        #[arg(long)]
+        compress: bool,
+        /// Output results as machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Import contracts in bulk from a directory
+    BatchImport {
+        /// Input directory containing contract files to import
+        input_dir: String,
+        /// Force a specific format (json, csv, archive); auto-detected if omitted
+        #[arg(long)]
+        format: Option<String>,
+        /// How to handle duplicates: skip or fail
+        #[arg(long, default_value = "skip")]
+        on_duplicate: String,
+        /// Preview what would be imported without committing
+        #[arg(long)]
+        dry_run: bool,
+        /// Abort on first error; report atomically
+        #[arg(long)]
+        atomic: bool,
+        /// Output directory for archive imports
+        #[arg(long, default_value = "./imported")]
+        output_dir: String,
+        /// Output results as machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Run advanced analysis on a deployed contract (#530)
     Analyze {
         /// On-chain contract ID to analyse
@@ -858,6 +989,16 @@ pub enum Commands {
     Plugins {
         #[command(subcommand)]
         action: PluginCommands,
+    },
+
+    /// Manage local cache of registry API responses (#845)
+    Cache {
+        #[command(subcommand)]
+        action: CacheCommands,
+    /// Manage environment variable sets for different deployments (#843)
+    Env {
+        #[command(subcommand)]
+        action: EnvCommands,
     },
 
     /// External command (may be provided by an installed plugin)
@@ -1065,6 +1206,49 @@ pub enum ConfigSubcommands {
         version: i32,
         #[arg(long)]
         created_by: String,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum AuthCommands {
+    /// Sign in with a GitHub account, Stellar wallet, or API key
+    Login {
+        /// Authentication method to use
+        #[arg(long, value_enum)]
+        method: Option<crate::auth::AuthMethod>,
+
+        /// Identity to authenticate with
+        #[arg(long)]
+        identity: Option<String>,
+
+        /// Secret credential or signing seed
+        #[arg(long)]
+        secret: Option<String>,
+
+        /// Comma-separated token scopes
+        #[arg(long, value_delimiter = ',')]
+        scopes: Vec<String>,
+
+        /// Token lifetime, e.g. 1h, 30m, 7d, or seconds
+        #[arg(long)]
+        expires: Option<String>,
+    },
+
+    /// Sign out and remove stored credentials
+    Logout {},
+
+    /// Show the current authentication state
+    Status {},
+
+    /// Print the current API token, refreshing it when possible
+    Token {
+        /// Comma-separated token scopes
+        #[arg(long, value_delimiter = ',')]
+        scopes: Vec<String>,
+
+        /// Token lifetime, e.g. 1h, 30m, 7d, or seconds
+        #[arg(long)]
+        expires: Option<String>,
     },
 }
 
@@ -1445,11 +1629,26 @@ pub enum KeysCommands {
 /// Sub-commands for the `contract` group (#522)
 #[derive(Debug, Subcommand)]
 pub enum ContractCommands {
+    /// Register one or more contracts in the registry
+    Register {
+        /// Path to a YAML or JSON metadata file
+        #[arg(long)]
+        file: Option<String>,
+
+        /// Enable repeated prompts for multiple contracts
+        #[arg(long)]
+        batch: bool,
+
+        /// Output results as machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Verify a deployed contract's authenticity against the on-chain registry
     ///
-    /// Usage: soroban-registry contract verify <address> --network <network> [--json]
+    /// Usage: soroban-registry contract verify <address> --network <network> [--json] [--strict] [--batch] [--no-cache]
     Verify {
-        /// On-chain contract address to verify
+        /// On-chain contract address to verify (or comma-separated list for batch verification)
         address: String,
 
         /// Stellar network (mainnet | testnet | futurenet)
@@ -1459,6 +1658,18 @@ pub enum ContractCommands {
         /// Output results as machine-readable JSON
         #[arg(long)]
         json: bool,
+
+        /// Strict mode: fail if any warnings or errors are found
+        #[arg(long)]
+        strict: bool,
+
+        /// Batch mode: verify multiple contracts (comma-separated addresses)
+        #[arg(long)]
+        batch: bool,
+
+        /// Skip cache and always fetch fresh data from registry
+        #[arg(long)]
+        no_cache: bool,
     },
 
     /// Display detailed information about a contract
@@ -1473,6 +1684,493 @@ pub enum ContractCommands {
         network: String,
 
         /// Output results as machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Show contract registry statistics and analytics
+    ///
+    /// Usage: soroban-registry contract stats [--network testnet] [--category defi]
+    Stats {
+        /// Filter stats by network
+        #[arg(long)]
+        network: Option<String>,
+
+        /// Filter stats by category
+        #[arg(long)]
+        category: Option<String>,
+
+        /// Number of popular contracts to display
+        #[arg(long, default_value_t = 10)]
+        top_n: usize,
+
+        /// Output format: table, json, csv
+        #[arg(long, default_value = "table")]
+        format: String,
+
+        /// Export stats to a file
+        #[arg(long, short = 'o')]
+        output: Option<String>,
+
+        /// Compare against another period, for example 7d or 30d
+        #[arg(long)]
+        compare: Option<String>,
+    },
+
+    /// Export contracts and related registry data for backup or migration
+    ///
+    /// Usage: soroban-registry contract export [OUTPUT_FILE] --format json
+    Export {
+        /// Optional output file path
+        output_file: Option<String>,
+
+        /// Output file path
+        #[arg(long, short = 'o')]
+        output: Option<String>,
+
+        /// Export format: json, csv, jsonl, sqlite, markdown, or archive
+        #[arg(long, short = 'f', default_value = "json")]
+        format: String,
+
+        /// Filter by network
+        #[arg(long)]
+        network: Option<String>,
+
+        /// Filter by category
+        #[arg(long)]
+        category: Option<String>,
+
+        /// Export only contracts updated since this date
+        #[arg(long)]
+        since: Option<String>,
+
+        /// Write a gzip-compressed export file
+        #[arg(long)]
+        compress: bool,
+
+        /// Include related data such as versions, dependencies, analytics, and reviews
+        #[arg(long, default_value_t = true)]
+        include_related: bool,
+
+        /// Number of contracts to fetch per API page
+        #[arg(long, default_value_t = 100)]
+        page_size: usize,
+    },
+    /// Manage featured (highlighted) contracts (#832)
+    ///
+    /// Usage: soroban-registry contract highlight [ADDRESS] --action <add|remove|list|check>
+    Highlight {
+        /// Contract address (required for add/remove/check)
+        address: Option<String>,
+        /// Action to perform: add | remove | list | check
+        #[arg(long, default_value = "list")]
+        action: String,
+        /// Curator bearer token for mutating actions (add/remove)
+        #[arg(long)]
+        token: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// View a contract's interactions and call patterns (#835)
+    Interaction {
+        /// On-chain contract address
+        address: String,
+        /// Max number of recent interactions to display
+        #[arg(long, default_value_t = 20)]
+        limit: u32,
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Analyze a contract's dependencies and relationships (#836)
+    Dependency {
+        /// On-chain contract address
+        address: String,
+        /// Dependency tree depth
+        #[arg(long, default_value_t = 1)]
+        depth: u32,
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Import contracts into the registry from an external file (#831)
+    ///
+    /// Supports JSON, JSONL (newline-delimited JSON), CSV, and archive formats.
+    ///
+    /// Usage: soroban-registry contract import <INPUT_FILE> [OPTIONS]
+    Import {
+        /// Path to the input file (JSON, JSONL, CSV, or .tar.gz archive)
+        input_file: String,
+
+        /// Input format override (json | jsonl | csv | sqlite | archive).
+        /// Inferred from the file extension when omitted.
+        #[arg(long, short = 'f')]
+        format: Option<String>,
+
+        /// How to handle duplicate contracts: skip | update | fail (default: skip)
+        #[arg(long, default_value = "skip")]
+        on_duplicate: String,
+
+        /// Network alias mappings, e.g. --network-map futurenet=testnet
+        /// May be repeated for multiple aliases.
+        #[arg(long = "network-map")]
+        network_map: Vec<String>,
+
+        /// Preview what would be imported without writing to the registry
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Validate all records before importing; abort on any error
+        #[arg(long)]
+        validate: bool,
+
+        /// Roll back all successful imports if any record fails
+        #[arg(long)]
+        atomic: bool,
+
+        /// Write the JSON import-summary report to this file path
+        /// (prints to stdout when omitted)
+        #[arg(long, short = 'o')]
+        report_output: Option<String>,
+
+        /// Directory for archive extraction (archive format only)
+        #[arg(long, default_value = "./imported")]
+        output_dir: String,
+    },
+}
+
+/// Sub-commands for the `api-key` group (#842)
+#[derive(Debug, Subcommand)]
+pub enum ApiKeyCommands {
+    /// Create a new API key
+    Create {
+        /// Expiry (ISO date or duration, e.g. 2026-12-31 or 30d)
+        #[arg(long)]
+        expires: Option<String>,
+        /// Comma-separated scopes / permissions
+        #[arg(long)]
+        scopes: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// List your API keys
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Permanently delete an API key
+    Delete {
+        /// API key id
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Revoke (disable) an API key without deleting its audit record
+    Revoke {
+        /// API key id
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+/// Sub-commands for the `env` group (#843)
+#[derive(Debug, Subcommand)]
+pub enum EnvCommands {
+    /// Set a variable in an environment
+    ///
+    /// Usage: soroban-registry env set <NAME> <VALUE> [--env <environment>]
+    Set {
+        /// Variable name (shell identifier: letters, digits, underscores)
+        name: String,
+        /// Value to assign
+        value: String,
+        /// Target environment (defaults to the active environment)
+        #[arg(long)]
+        env: Option<String>,
+        /// Print the full value instead of masking it
+        #[arg(long)]
+        show_value: bool,
+    },
+
+    /// Get a variable's value from an environment
+    ///
+    /// Usage: soroban-registry env get <NAME> [--env <environment>] [--json]
+    Get {
+        /// Variable name to look up
+        name: String,
+        /// Source environment (defaults to the active environment)
+        #[arg(long)]
+        env: Option<String>,
+        /// Output as machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// List variables in an environment
+    ///
+    /// Usage: soroban-registry env list [--env <environment>] [--all] [--merged] [--json]
+    List {
+        /// Environment to list (defaults to the active environment)
+        #[arg(long)]
+        env: Option<String>,
+        /// List variables in every environment
+        #[arg(long)]
+        all: bool,
+        /// Merge global config defaults into the output
+        #[arg(long)]
+        merged: bool,
+        /// Output as machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Copy all variables from one environment to another
+    ///
+    /// Usage: soroban-registry env copy --from <src> --to <dst>
+    Copy {
+        /// Source environment name
+        #[arg(long)]
+        from: String,
+        /// Destination environment name
+        #[arg(long)]
+        to: String,
+        /// Overwrite the destination if it already exists
+        #[arg(long)]
+        overwrite: bool,
+    },
+
+    /// Delete a variable from an environment
+    ///
+    /// Usage: soroban-registry env delete <NAME> [--env <environment>]
+    Delete {
+        /// Variable name to remove
+        name: String,
+        /// Source environment (defaults to the active environment)
+        #[arg(long)]
+        env: Option<String>,
+    },
+
+    /// Export environment variables as a shell-sourceable file
+    ///
+    /// Usage: soroban-registry env export [--env <environment>] [--format shell|json|dotenv]
+    Export {
+        /// Environment to export (defaults to the active environment)
+        #[arg(long)]
+        env: Option<String>,
+        /// Output format: shell (default), json, dotenv
+        #[arg(long, value_enum, default_value_t = EnvExportFormat::Shell)]
+        format: EnvExportFormat,
+        /// Merge global config defaults into the export
+        #[arg(long)]
+        merged: bool,
+    },
+
+    /// Switch the active environment
+    ///
+    /// Usage: soroban-registry env switch <ENVIRONMENT>
+    Switch {
+        /// Environment name to activate
+        environment: String,
+    },
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum EnvExportFormat {
+    Shell,
+    Json,
+    Dotenv,
+}
+
+impl EnvExportFormat {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Shell => "shell",
+            Self::Json => "json",
+            Self::Dotenv => "dotenv",
+        }
+    }
+}
+
+/// Sub-commands for the `cache` group (#845)
+#[derive(Debug, Subcommand)]
+pub enum CacheCommands {
+    /// Clear cached entries from disk
+    ///
+    /// Usage: soroban-registry cache clear [--level disk|memory|all] [--key <key>]
+    Clear {
+        /// Cache level to clear: disk (default), memory, all
+        #[arg(long, default_value = "disk")]
+        level: String,
+        /// Clear only the entry matching this specific cache key
+        #[arg(long)]
+        key: Option<String>,
+    },
+
+    /// Show cache statistics and configuration
+    ///
+    /// Usage: soroban-registry cache status [--json]
+    Status {
+        /// Output as machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Configure cache settings
+    ///
+    /// Usage: soroban-registry cache configure [--ttl <secs>] [--max-size <bytes>]
+    ///                                         [--compression on|off] [--auto-refresh on|off]
+    Configure {
+        /// Default TTL for cached entries in seconds
+        #[arg(long)]
+        ttl: Option<u64>,
+        /// Maximum disk cache size in bytes (0 = unlimited)
+        #[arg(long)]
+        max_size: Option<u64>,
+        /// Enable or disable compression for disk entries: on | off
+        #[arg(long)]
+        compression: Option<String>,
+        /// Enable or disable automatic refresh of stale entries: on | off
+        #[arg(long)]
+        auto_refresh: Option<String>,
+        /// Output current (or updated) config as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Remove stale entries and enforce disk size limit
+    ///
+    /// Usage: soroban-registry cache optimize [--json]
+    Optimize {
+        /// Output results as machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Export cache entries for analysis
+    ///
+    /// Usage: soroban-registry cache export [--format json|csv] [--include-stale]
+    Export {
+        /// Output format: json (default) or csv
+        #[arg(long, default_value = "json")]
+        format: String,
+        /// Include stale (expired) entries in the export
+        #[arg(long)]
+        include_stale: bool,
+    },
+}
+
+/// Sub-commands for the `profile` group (#841)
+#[derive(Debug, Subcommand)]
+pub enum ProfileCommands {
+    /// Display a publisher profile
+    ///
+    /// Usage: soroban-registry profile view [--address <stellar-address>] [--json]
+    View {
+        /// Stellar address or publisher UUID to look up (defaults to the address in local config)
+        #[arg(long)]
+        address: Option<String>,
+
+        /// Output results as machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Update profile fields
+    ///
+    /// Usage: soroban-registry profile edit --name <n> --website <url> ...
+    Edit {
+        /// Display name
+        #[arg(long)]
+        name: Option<String>,
+
+        /// Short biography or description
+        #[arg(long)]
+        bio: Option<String>,
+
+        /// Personal or project website URL
+        #[arg(long)]
+        website: Option<String>,
+
+        /// Contact email address
+        #[arg(long)]
+        email: Option<String>,
+
+        /// GitHub profile URL
+        #[arg(long)]
+        github: Option<String>,
+
+        /// Avatar image URL
+        #[arg(long)]
+        avatar: Option<String>,
+    },
+
+    /// Update a single profile field by key
+    ///
+    /// Usage: soroban-registry profile update --field <key> --value <val>
+    Update {
+        /// Field to update (name | bio | website | email | github | avatar)
+        #[arg(long)]
+        field: String,
+
+        /// New value for the field
+        #[arg(long)]
+        value: String,
+    },
+
+    /// List contracts published by a profile
+    ///
+    /// Usage: soroban-registry profile list-contracts [--address <addr>] [--limit N]
+    #[command(name = "list-contracts")]
+    ListContracts {
+        /// Stellar address or publisher UUID (defaults to local config)
+        #[arg(long)]
+        address: Option<String>,
+
+        /// Maximum number of contracts to return
+        #[arg(long, default_value = "20")]
+        limit: usize,
+
+        /// Output format: table | csv
+        #[arg(long, default_value = "table")]
+        format: String,
+
+        /// Output as machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Export full profile data to JSON or CSV
+    ///
+    /// Usage: soroban-registry profile export [--address <addr>] [--format json|csv]
+    Export {
+        /// Stellar address or publisher UUID (defaults to local config)
+        #[arg(long)]
+        address: Option<String>,
+
+        /// Export format: json | csv
+        #[arg(long, default_value = "json")]
+        format: String,
+    },
+
+    /// Assess security and operational risks for a contract (#837)
+    ///
+    /// Usage: soroban-registry contract risk <address> [--network <n>] [--threshold <level>] [--json]
+    Risk {
+        /// On-chain contract address or registry UUID to assess
+        address: String,
+
+        /// Stellar network (mainnet | testnet | futurenet)
+        #[arg(long, default_value = "mainnet")]
+        network: String,
+
+        /// Exit with code 1 if overall risk level meets or exceeds this threshold
+        /// (low | medium | high | critical)
+        #[arg(long)]
+        threshold: Option<String>,
+
+        /// Output the risk report as machine-readable JSON
         #[arg(long)]
         json: bool,
     },
@@ -1927,8 +2625,9 @@ pub async fn dispatch_command(
             )
             .await?;
         }
-        Commands::Info { id } => {
-            commands::contract_info(&cli.api_url, &id).await?;
+        Commands::Info { id, json, raw } => {
+            let use_json = json || raw;
+            contracts::info(&cli.api_url, &id, use_json).await?;
         }
         Commands::Compare {
             ids,
@@ -2164,16 +2863,20 @@ pub async fn dispatch_command(
                 validate,
                 dry_run
             );
-            crate::import::run(
-                &cli.api_url,
-                &file,
-                format.as_deref(),
-                network,
-                &output_dir,
+            let opts = crate::import::ImportOptions {
+                api_url: &cli.api_url,
+                file_path: &file,
+                format: format.as_deref(),
+                network_flag: network,
+                output_dir: &output_dir,
                 validate,
                 dry_run,
-            )
-            .await?;
+                on_duplicate: crate::import::OnDuplicate::Skip,
+                network_map: std::collections::HashMap::new(),
+                atomic: false,
+                report_output: None,
+            };
+            crate::import::run(opts).await?;
         }
         Commands::Doc {
             contract_path,
@@ -2438,7 +3141,7 @@ pub async fn dispatch_command(
             )
             .await?;
         }
-        Commands::Profile {
+        Commands::Perf {
             contract_path,
             method,
             output,
@@ -2447,7 +3150,7 @@ pub async fn dispatch_command(
             recommendations,
         } => {
             log::debug!(
-                "Command: profile | contract_path={} method={:?} output={:?} flamegraph={:?} compare={:?} recommendations={}",
+                "Command: perf | contract_path={} method={:?} output={:?} flamegraph={:?} compare={:?} recommendations={}",
                 contract_path,
                 method,
                 output,
@@ -2464,6 +3167,64 @@ pub async fn dispatch_command(
                 recommendations,
             )?;
         }
+        // ── User profile management (#841) ───────────────────────────────────
+        Commands::Profile { action } => match action {
+            ProfileCommands::View { address, json } => {
+                log::debug!("Command: profile view | address={:?} json={}", address, json);
+                user_profile::view(&cli.api_url, address.as_deref(), json).await?;
+            }
+            ProfileCommands::Edit {
+                name,
+                bio,
+                website,
+                email,
+                github,
+                avatar,
+            } => {
+                log::debug!("Command: profile edit");
+                user_profile::edit(
+                    &cli.api_url,
+                    name.as_deref(),
+                    bio.as_deref(),
+                    website.as_deref(),
+                    email.as_deref(),
+                    github.as_deref(),
+                    avatar.as_deref(),
+                )
+                .await?;
+            }
+            ProfileCommands::Update { field, value } => {
+                log::debug!(
+                    "Command: profile update | field={} value={}",
+                    field,
+                    value
+                );
+                user_profile::update_field(&cli.api_url, &field, &value).await?;
+            }
+            ProfileCommands::ListContracts {
+                address,
+                limit,
+                format,
+                json,
+            } => {
+                log::debug!(
+                    "Command: profile list-contracts | address={:?} limit={} format={}",
+                    address,
+                    limit,
+                    format
+                );
+                user_profile::list_contracts(&cli.api_url, address.as_deref(), limit, &format, json)
+                    .await?;
+            }
+            ProfileCommands::Export { address, format } => {
+                log::debug!(
+                    "Command: profile export | address={:?} format={}",
+                    address,
+                    format
+                );
+                user_profile::export(&cli.api_url, address.as_deref(), &format).await?;
+            }
+        },
         Commands::Test {
             test_file,
             contract_path,
@@ -2604,6 +3365,66 @@ pub async fn dispatch_command(
                     &created_by,
                 )
                 .await?;
+            }
+        },
+        Commands::Auth { action } => match action {
+            AuthCommands::Login {
+                method,
+                identity,
+                secret,
+                scopes,
+                expires,
+            } => {
+                let method = match method {
+                    Some(method) => method,
+                    None => {
+                        let selected = wizard::prompt_with_validation(
+                            "Authentication method [github|stellar|api-key]",
+                            Some("stellar".to_string()),
+                            |value| {
+                                matches!(
+                                    value.trim().to_ascii_lowercase().as_str(),
+                                    "github" | "stellar" | "api-key"
+                                )
+                            },
+                            "Choose github, stellar, or api-key.",
+                        )?;
+                        match selected.trim().to_ascii_lowercase().as_str() {
+                            "github" => crate::auth::AuthMethod::Github,
+                            "stellar" => crate::auth::AuthMethod::Stellar,
+                            "api-key" => crate::auth::AuthMethod::ApiKey,
+                            _ => unreachable!(),
+                        }
+                    }
+                };
+                log::debug!(
+                    "Command: auth login | method={} identity={:?} scopes={:?} expires={:?}",
+                    method,
+                    identity,
+                    scopes,
+                    expires
+                );
+                auth::login(
+                    &cli.api_url,
+                    method,
+                    identity.as_deref(),
+                    secret.as_deref(),
+                    scopes,
+                    expires.as_deref(),
+                )
+                .await?;
+            }
+            AuthCommands::Logout {} => {
+                log::debug!("Command: auth logout");
+                auth::logout()?;
+            }
+            AuthCommands::Status {} => {
+                log::debug!("Command: auth status");
+                auth::status(&cli.api_url).await?;
+            }
+            AuthCommands::Token { scopes, expires } => {
+                log::debug!("Command: auth token | scopes={:?} expires={:?}", scopes, expires);
+                auth::token(&cli.api_url, scopes, expires.as_deref()).await?;
             }
         },
         Commands::State { action } => match action {
@@ -2862,18 +3683,34 @@ pub async fn dispatch_command(
         },
         // ── Contract verify command (#522) ───────────────────────────────────
         Commands::Contract { action } => match action {
+            ContractCommands::Register { file, batch, json } => {
+                log::debug!(
+                    "Command: contract register | file={:?} batch={} json={}",
+                    file,
+                    batch,
+                    json
+                );
+                contract_register::run(&cli.api_url, cfg_network, file.as_deref(), batch, json)
+                    .await?;
+            }
             ContractCommands::Verify {
                 address,
                 network,
                 json,
+                strict,
+                batch,
+                no_cache,
             } => {
                 log::debug!(
-                    "Command: contract verify | address={} network={} json={}",
+                    "Command: contract verify | address={} network={} json={} strict={} batch={} no_cache={}",
                     address,
                     network,
-                    json
+                    json,
+                    strict,
+                    batch,
+                    no_cache
                 );
-                contract_verify::run(&cli.api_url, &address, &network, json).await?;
+                contract_verify::run(&cli.api_url, &address, &network, json, strict, batch, no_cache).await?;
             }
             ContractCommands::Details {
                 address,
@@ -2919,9 +3756,170 @@ pub async fn dispatch_command(
                     publisher.as_deref(),
                     tags.as_deref(),
                     skip_abi,
+            ContractCommands::Risk {
+                address,
+                network,
+                threshold,
+                json,
+            } => {
+                log::debug!(
+                    "Command: contract risk | address={} network={} threshold={:?} json={}",
+                    address,
+                    network,
+                    threshold,
+                    json
+                );
+                contract_risk::run(
+                    &cli.api_url,
+                    &address,
+                    &network,
+                    threshold.as_deref(),
+            ContractCommands::Stats {
+                network,
+                category,
+                top_n,
+                format,
+                output,
+                compare,
+            } => {
+                log::debug!(
+                    "Command: contract stats | network={:?} category={:?} format={}",
+                    network,
+                    category,
+                    format
+                );
+                commands::contract_stats(
+                    &cli.api_url,
+                    network.as_deref(),
+                    category.as_deref(),
+                    top_n,
+                    &format,
+                    output.as_deref(),
+                    compare.as_deref(),
+                )
+                .await?;
+            }
+            ContractCommands::Export {
+                output_file,
+                output,
+                format,
+                network,
+                category,
+                since,
+                compress,
+                include_related,
+                page_size,
+            } => {
+                let resolved_output = output.or(output_file);
+                log::debug!(
+                    "Command: contract export | output={:?} format={} network={:?} category={:?}",
+                    resolved_output,
+                    format,
+                    network,
+                    category
+                );
+                commands::contract_export(
+                    &cli.api_url,
+                    resolved_output.as_deref(),
+                    &format,
+                    network.as_deref(),
+                    category.as_deref(),
+                    since.as_deref(),
+                    compress,
+                    include_related,
+                    page_size,
+                )
+                .await?;
+            ContractCommands::Highlight {
+                address,
+                action,
+                token,
+                json,
+            } => {
+                log::debug!("Command: contract highlight | action={}", action);
+                contract_highlight::run(
+                    &cli.api_url,
+                    address.as_deref(),
+                    &action,
+                    token.as_deref(),
                     json,
                 )
                 .await?;
+            }
+            ContractCommands::Interaction {
+                address,
+                limit,
+                json,
+            } => {
+                log::debug!("Command: contract interaction | address={}", address);
+                contract_interaction::run(&cli.api_url, &address, limit, json).await?;
+            }
+            ContractCommands::Dependency {
+                address,
+                depth,
+                json,
+            } => {
+                log::debug!("Command: contract dependency | address={} depth={}", address, depth);
+                contract_dependency::run(&cli.api_url, &address, depth, json).await?;
+            }
+            ContractCommands::Import {
+                input_file,
+                format,
+                on_duplicate,
+                network_map,
+                dry_run,
+                validate,
+                atomic,
+                report_output,
+                output_dir,
+            } => {
+                log::debug!(
+                    "Command: contract import | file={} format={:?} on_duplicate={} dry_run={} validate={} atomic={}",
+                    input_file,
+                    format,
+                    on_duplicate,
+                    dry_run,
+                    validate,
+                    atomic
+                );
+                let dup_strategy = crate::import::OnDuplicate::parse(&on_duplicate)?;
+                let net_map = crate::import::parse_network_map(&network_map)?;
+                let opts = crate::import::ImportOptions {
+                    api_url: &cli.api_url,
+                    file_path: &input_file,
+                    format: format.as_deref(),
+                    network_flag: cli.network.as_deref(),
+                    output_dir: &output_dir,
+                    validate,
+                    dry_run,
+                    on_duplicate: dup_strategy,
+                    network_map: net_map,
+                    atomic,
+                    report_output,
+                };
+                crate::import::run(opts).await?;
+            }
+        },
+        Commands::ApiKey { action } => match action {
+            ApiKeyCommands::Create {
+                expires,
+                scopes,
+                json,
+            } => {
+                log::debug!("Command: api-key create");
+                api_key::create(&cli.api_url, expires.as_deref(), scopes.as_deref(), json).await?;
+            }
+            ApiKeyCommands::List { json } => {
+                log::debug!("Command: api-key list");
+                api_key::list(&cli.api_url, json).await?;
+            }
+            ApiKeyCommands::Delete { id, json } => {
+                log::debug!("Command: api-key delete | id={}", id);
+                api_key::delete(&cli.api_url, &id, false, json).await?;
+            }
+            ApiKeyCommands::Revoke { id, json } => {
+                log::debug!("Command: api-key revoke | id={}", id);
+                api_key::delete(&cli.api_url, &id, true, json).await?;
             }
         },
         // ── Release Notes commands ───────────────────────────────────────────
@@ -3092,6 +4090,80 @@ pub async fn dispatch_command(
             )
             .await?;
         }
+        Commands::BatchAudit {
+            file,
+            format,
+            output_dir,
+            fail_on,
+            high_risk,
+            profile,
+            export,
+            json,
+        } => {
+            log::debug!("Command: batch-audit | file={}", file);
+            batch_audit::run_batch_audit(
+                &file,
+                &format,
+                output_dir.as_deref(),
+                fail_on.as_deref(),
+                high_risk,
+                &profile,
+                export.as_deref(),
+                json,
+            )?;
+        }
+        Commands::BatchDeploy {
+            wasm_file,
+            networks,
+            signer,
+            atomic,
+            json,
+        } => {
+            log::debug!("Command: batch-deploy | wasm={}", wasm_file);
+            batch_deploy::run_batch_deploy(&wasm_file, &networks, &signer, atomic, json)?;
+        }
+        Commands::BatchExport {
+            output_dir,
+            filter,
+            format,
+            organize,
+            compress,
+            json,
+        } => {
+            log::debug!("Command: batch-export | output_dir={}", output_dir);
+            batch_export::run_batch_export(
+                &cli.api_url,
+                &output_dir,
+                filter.as_deref(),
+                &format,
+                organize,
+                compress,
+                json,
+            )
+            .await?;
+        }
+        Commands::BatchImport {
+            input_dir,
+            format,
+            on_duplicate,
+            dry_run,
+            atomic,
+            output_dir,
+            json,
+        } => {
+            log::debug!("Command: batch-import | input_dir={}", input_dir);
+            batch_import::run_batch_import(
+                &cli.api_url,
+                &input_dir,
+                format.as_deref(),
+                &on_duplicate,
+                dry_run,
+                atomic,
+                &output_dir,
+                json,
+            )
+            .await?;
+        }
         Commands::Batch {
             operation,
             contracts,
@@ -3112,6 +4184,118 @@ pub async fn dispatch_command(
             )
             .await?;
         }
+        // ── Local cache management (#845) ────────────────────────────────────
+        Commands::Cache { action } => match action {
+            CacheCommands::Clear { level, key } => {
+                log::debug!("Command: cache clear | level={} key={:?}", level, key);
+                cache::clear(&level, key.as_deref())?;
+            }
+            CacheCommands::Status { json } => {
+                log::debug!("Command: cache status | json={}", json);
+                cache::status(json)?;
+            }
+            CacheCommands::Configure {
+                ttl,
+                max_size,
+                compression,
+                auto_refresh,
+                json,
+            } => {
+                log::debug!("Command: cache configure");
+                cache::configure(
+                    ttl,
+                    max_size,
+                    compression.as_deref(),
+                    auto_refresh.as_deref(),
+                    json,
+                )?;
+            }
+            CacheCommands::Optimize { json } => {
+                log::debug!("Command: cache optimize | json={}", json);
+                cache::optimize(json)?;
+            }
+            CacheCommands::Export { format, include_stale } => {
+                log::debug!(
+                    "Command: cache export | format={} include_stale={}",
+                    format,
+                    include_stale
+                );
+                cache::export(&format, include_stale)?;
+        // ── Environment variable management (#843) ───────────────────────────
+        Commands::Env { action } => match action {
+            EnvCommands::Set {
+                name,
+                value,
+                env,
+                show_value,
+            } => {
+                log::debug!(
+                    "Command: env set | name={} env={:?} show_value={}",
+                    name,
+                    env,
+                    show_value
+                );
+                env::set_var(&name, &value, env.as_deref(), show_value)?;
+            }
+            EnvCommands::Get { name, env, json } => {
+                log::debug!(
+                    "Command: env get | name={} env={:?} json={}",
+                    name,
+                    env,
+                    json
+                );
+                env::get_var(&name, env.as_deref(), json)?;
+            }
+            EnvCommands::List {
+                env,
+                all,
+                merged,
+                json,
+            } => {
+                log::debug!(
+                    "Command: env list | env={:?} all={} merged={} json={}",
+                    env,
+                    all,
+                    merged,
+                    json
+                );
+                env::list_vars(env.as_deref(), all, merged, json)?;
+            }
+            EnvCommands::Copy {
+                from,
+                to,
+                overwrite,
+            } => {
+                log::debug!(
+                    "Command: env copy | from={} to={} overwrite={}",
+                    from,
+                    to,
+                    overwrite
+                );
+                env::copy_env(&from, &to, overwrite)?;
+            }
+            EnvCommands::Delete { name, env } => {
+                log::debug!("Command: env delete | name={} env={:?}", name, env);
+                env::delete_var(&name, env.as_deref())?;
+            }
+            EnvCommands::Export {
+                env,
+                format,
+                merged,
+            } => {
+                log::debug!(
+                    "Command: env export | env={:?} format={:?} merged={}",
+                    env,
+                    format,
+                    merged
+                );
+                env::export_env(env.as_deref(), format.as_str(), merged)?;
+            }
+            EnvCommands::Switch { environment } => {
+                log::debug!("Command: env switch | environment={}", environment);
+                env::switch_env(&environment)?;
+            }
+        },
     }
 
     Ok(())
@@ -3160,5 +4344,35 @@ mod verbose_flag_tests {
     fn verbose_works_after_subcommand_when_global() {
         let cli = parse(&["soroban-registry", "version", "-vv"]);
         assert_eq!(cli.verbose, 2);
+    }
+
+    #[test]
+    fn env_export_rejects_invalid_format() {
+        let err = Cli::try_parse_from(["soroban-registry", "env", "export", "--format", "invalid"])
+            .expect_err("CLI should reject invalid export format");
+
+        assert!(
+            err.to_string().contains("possible values"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn env_set_parses_show_value_flag() {
+        let cli = parse(&[
+            "soroban-registry",
+            "env",
+            "set",
+            "API_KEY",
+            "secret",
+            "--show-value",
+        ]);
+
+        match cli.command {
+            Commands::Env {
+                action: EnvCommands::Set { show_value, .. },
+            } => assert!(show_value),
+            _ => panic!("expected env set command"),
+        }
     }
 }

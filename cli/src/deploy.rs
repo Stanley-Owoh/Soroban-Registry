@@ -116,22 +116,11 @@ fn simulate_deployment(
     Ok(())
 }
 
-fn execute_deployment(
+pub fn deploy_to_network(
     wasm: &str,
     network: &str,
     signer: &str,
-    params: &serde_json::Value,
-) -> Result<()> {
-    println!(
-        "{}",
-        "Executing deployment via soroban CLI...".bright_black()
-    );
-
-    // If there are params, we'd ideally pass them here.
-    // Soroban CLI usually takes --wasm-hash if installing separately,
-    // or --id if deploying.
-    // Note: This is a simplified execution.
-
+) -> Result<String> {
     let mut args = vec![
         "contract",
         "deploy",
@@ -143,23 +132,6 @@ fn execute_deployment(
         signer,
     ];
 
-    // Convert JSON params to Stellar CLI argument syntax: -- arg1 val1 arg2 val2
-    let mut constructor_args = Vec::new();
-    if let Some(obj) = params.as_object() {
-        if !obj.is_empty() {
-            args.push("--");
-            for (key, value) in obj {
-                constructor_args.push(format!("--{}", key));
-                constructor_args.push(value.as_str().unwrap_or(&value.to_string()).to_string());
-            }
-        }
-    }
-
-    for arg in &constructor_args {
-        args.push(arg);
-    }
-
-    // Try 'stellar' first, fall back to 'soroban'
     let cmd_name = if Command::new("stellar").arg("--version").output().is_ok() {
         "stellar"
     } else {
@@ -173,15 +145,30 @@ fn execute_deployment(
 
     if output.status.success() {
         let contract_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        println!(
-            "{} {}",
-            "✓ Deployment successful!".green().bold(),
-            contract_id
-        );
+        Ok(contract_id)
     } else {
         let error = String::from_utf8_lossy(&output.stderr);
         anyhow::bail!("Deployment failed: {}", error);
     }
+}
+
+fn execute_deployment(
+    wasm: &str,
+    network: &str,
+    signer: &str,
+    _params: &serde_json::Value,
+) -> Result<()> {
+    println!(
+        "{}",
+        "Executing deployment via soroban CLI...".bright_black()
+    );
+
+    let contract_id = deploy_to_network(wasm, network, signer)?;
+    println!(
+        "{} {}",
+        "✓ Deployment successful!".green().bold(),
+        contract_id
+    );
 
     Ok(())
 }

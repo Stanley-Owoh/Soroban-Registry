@@ -9,6 +9,7 @@ pub mod reorg;
 pub mod rpc;
 pub mod state;
 pub mod telemetry;
+pub mod usdc_scanner;
 
 pub use backoff::ExponentialBackoff;
 pub use config::{DatabaseConfig, NetworkConfig, ServiceConfig};

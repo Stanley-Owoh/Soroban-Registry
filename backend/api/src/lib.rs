@@ -46,6 +46,7 @@ pub mod interoperability_handlers;
 pub mod metrics;
 pub mod metrics_handler;
 pub mod migration_handlers;
+pub mod marketplace;
 pub mod ml_detector;
 pub mod models;
 pub mod multisig_handlers;
@@ -88,6 +89,9 @@ pub mod zk_proof_handlers;
 
 // New modules for feature tasks
 pub mod ai;
+pub mod feature_flags;
+pub mod alerting;
+pub mod system_health;
 pub mod audit;
 pub mod config;
 pub mod db_monitoring;
@@ -100,3 +104,4 @@ pub mod security_log;
 pub mod state_monitor;
 pub mod stats;
 pub mod webhook_delivery;
+pub mod db_resilience;
