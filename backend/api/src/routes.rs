@@ -405,6 +405,15 @@ pub fn contract_routes() -> Router<AppState> {
             "/api/contracts/:id/state/history",
             get(state_monitor_handlers::get_state_history_handler),
         )
+        // Point-in-time + diff state queries (derived from the change log)
+        .route(
+            "/api/contracts/:id/state-at",
+            get(state_monitor_handlers::get_state_at_handler),
+        )
+        .route(
+            "/api/contracts/:id/state-diff",
+            get(state_monitor_handlers::get_state_diff_handler),
+        )
         .route(
             "/api/contracts/:id/anomalies",
             get(state_monitor_handlers::get_contract_anomalies_handler),

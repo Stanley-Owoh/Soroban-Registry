@@ -126,8 +126,7 @@ impl AuditLogger {
         resource_id: &str,
         limit: i64,
     ) -> Result<Vec<AuditRow>, sqlx::Error> {
-        sqlx::query_as!(
-            AuditRow,
+        sqlx::query_as::<_, AuditRow>(
             r#"
             SELECT id, actor_id, actor_email, operation, resource_type,
                    resource_id, metadata, status, error_message, chain_hash,
@@ -137,10 +136,10 @@ impl AuditLogger {
             ORDER BY created_at DESC
             LIMIT $3
             "#,
-            resource_type,
-            resource_id,
-            limit,
         )
+        .bind(resource_type)
+        .bind(resource_id)
+        .bind(limit)
         .fetch_all(&self.pool)
         .await
     }
@@ -151,8 +150,7 @@ impl AuditLogger {
         actor_id: &str,
         limit: i64,
     ) -> Result<Vec<AuditRow>, sqlx::Error> {
-        sqlx::query_as!(
-            AuditRow,
+        sqlx::query_as::<_, AuditRow>(
             r#"
             SELECT id, actor_id, actor_email, operation, resource_type,
                    resource_id, metadata, status, error_message, chain_hash,
@@ -162,9 +160,9 @@ impl AuditLogger {
             ORDER BY created_at DESC
             LIMIT $2
             "#,
-            actor_id,
-            limit,
         )
+        .bind(actor_id)
+        .bind(limit)
         .fetch_all(&self.pool)
         .await
     }

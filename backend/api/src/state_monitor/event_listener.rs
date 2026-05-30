@@ -88,9 +88,12 @@ impl EventListener {
 
         for contract_id in &contract_ids {
             // Query for state changes since last check
-            let changes = sqlx::query!(
+            let changes: Vec<crate::state_monitor::StateChangeEntry> = sqlx::query_as::<
+                _,
+                crate::state_monitor::StateChangeEntry,
+            >(
                 r#"
-                SELECT 
+                SELECT
                     sh.id,
                     sh.contract_id,
                     sh.state_key,
@@ -107,25 +110,12 @@ impl EventListener {
                   AND sh.created_at > NOW() - INTERVAL '1 minute'
                 ORDER BY sh.created_at ASC
                 "#,
-                uuid::Uuid::parse_str(contract_id)?
             )
+            .bind(uuid::Uuid::parse_str(contract_id)?)
             .fetch_all(&self.db)
             .await?;
 
             for change in changes {
-                let change = crate::state_monitor::StateChangeEntry {
-                    id: change.id,
-                    contract_id: change.contract_id,
-                    state_key: change.state_key,
-                    old_value: change.old_value,
-                    new_value: change.new_value,
-                    value_type: change.value_type,
-                    transaction_hash: change.transaction_hash,
-                    ledger_index: change.ledger_index,
-                    contract_version: change.contract_version,
-                    created_at: change.created_at,
-                    metadata: change.metadata,
-                };
                 // Convert to RealtimeEvent
                 let event = RealtimeEvent::MetadataUpdated {
                     contract_id: contract_id.clone(),

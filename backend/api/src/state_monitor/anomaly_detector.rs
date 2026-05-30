@@ -51,7 +51,7 @@ impl AnomalyDetector {
 
     /// Record an anomaly in the database
     async fn record_anomaly(&self, anomaly: AnomalyRecord) -> Result<()> {
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO state_anomalies (
                 contract_id, anomaly_type, severity, description,
@@ -59,15 +59,15 @@ impl AnomalyDetector {
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             "#,
-            anomaly.contract_id,
-            anomaly.anomaly_type,
-            anomaly.severity,
-            anomaly.description,
-            anomaly.state_key,
-            anomaly.old_value,
-            anomaly.new_value,
-            anomaly.metadata
         )
+        .bind(anomaly.contract_id)
+        .bind(anomaly.anomaly_type)
+        .bind(anomaly.severity)
+        .bind(anomaly.description)
+        .bind(anomaly.state_key)
+        .bind(anomaly.old_value)
+        .bind(anomaly.new_value)
+        .bind(anomaly.metadata)
         .execute(&self.db)
         .await?;
 
