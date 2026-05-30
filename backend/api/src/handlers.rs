@@ -1,4 +1,5 @@
 pub mod compatibility;
+pub mod contract_metadata;
 pub mod reviews;
 pub mod validators;
 
@@ -5597,6 +5598,295 @@ pub async fn bulk_update_contract_status(
 
     state.cache.invalidate_contracts().await;
     Ok(Json(json!({ "results": results })))
+}
+
+/// Batch metadata update — apply name/description/category/tag changes to multiple contracts (#849).
+/// Each item is processed in its own transaction so a per-item failure never rolls back prior items.
+/// A version snapshot is written to `contract_metadata_versions` before each update, enabling
+/// per-contract rollback via `POST /api/contracts/:id/metadata/rollback/:version_id`.
+pub async fn batch_update_contract_metadata(
+    State(state): State<AppState>,
+    ValidatedJson(req): ValidatedJson<shared::BatchMetadataUpdateRequest>,
+) -> ApiResult<Json<shared::BatchMetadataUpdateResponse>> {
+    let batch_id = req
+        .batch_id
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    let user_id = req.user_id;
+
+    let mut results: Vec<shared::BatchMetadataUpdateItemResult> = Vec::new();
+    let mut succeeded = 0usize;
+    let mut failed = 0usize;
+
+    for item in req.items {
+        // Require at least one metadata field per item.
+        if item.name.is_none()
+            && item.description.is_none()
+            && item.category.is_none()
+            && item.tags.is_none()
+        {
+            results.push(shared::BatchMetadataUpdateItemResult {
+                contract_id: item.contract_id,
+                ok: false,
+                rollback_version_id: None,
+                error: Some("at_least_one_field_required".to_string()),
+            });
+            failed += 1;
+            continue;
+        }
+
+        let contract_uuid = match Uuid::parse_str(&item.contract_id) {
+            Ok(id) => id,
+            Err(_) => {
+                results.push(shared::BatchMetadataUpdateItemResult {
+                    contract_id: item.contract_id,
+                    ok: false,
+                    rollback_version_id: None,
+                    error: Some("invalid_contract_id".to_string()),
+                });
+                failed += 1;
+                continue;
+            }
+        };
+
+        // Fetch current contract for before-state.
+        let before: Contract = match sqlx::query_as("SELECT * FROM contracts WHERE id = $1")
+            .bind(contract_uuid)
+            .fetch_one(&state.db)
+            .await
+        {
+            Ok(c) => c,
+            Err(_) => {
+                results.push(shared::BatchMetadataUpdateItemResult {
+                    contract_id: item.contract_id,
+                    ok: false,
+                    rollback_version_id: None,
+                    error: Some("not_found".to_string()),
+                });
+                failed += 1;
+                continue;
+            }
+        };
+
+        // Fetch current tag names for the snapshot.
+        let before_tag_names: Vec<String> = match sqlx::query_scalar::<_, String>(
+            "SELECT t.name FROM tags t JOIN contract_tags ct ON t.id = ct.tag_id WHERE ct.contract_id = $1",
+        )
+        .bind(contract_uuid)
+        .fetch_all(&state.db)
+        .await
+        {
+            Ok(names) => names,
+            Err(e) => {
+                results.push(shared::BatchMetadataUpdateItemResult {
+                    contract_id: item.contract_id,
+                    ok: false,
+                    rollback_version_id: None,
+                    error: Some(format!("fetch_tags_failed: {}", e)),
+                });
+                failed += 1;
+                continue;
+            }
+        };
+
+        // Per-item transaction.
+        let mut tx = match state.db.begin().await {
+            Ok(tx) => tx,
+            Err(e) => {
+                results.push(shared::BatchMetadataUpdateItemResult {
+                    contract_id: item.contract_id,
+                    ok: false,
+                    rollback_version_id: None,
+                    error: Some(format!("begin_tx_failed: {}", e)),
+                });
+                failed += 1;
+                continue;
+            }
+        };
+
+        // Snapshot current metadata so callers can rollback to this version.
+        let snapshot_summary = item
+            .change_summary
+            .as_deref()
+            .map(|s| format!("Before batch update: {}", s));
+        let rollback_version_id: Uuid = match sqlx::query_scalar(
+            "INSERT INTO contract_metadata_versions
+                 (contract_id, user_id, name, description, category, tags, change_summary)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             RETURNING id",
+        )
+        .bind(contract_uuid)
+        .bind(user_id)
+        .bind(&before.name)
+        .bind(&before.description)
+        .bind(&before.category)
+        .bind(&before_tag_names)
+        .bind(snapshot_summary)
+        .fetch_one(&mut *tx)
+        .await
+        {
+            Ok(id) => id,
+            Err(e) => {
+                let _ = tx.rollback().await;
+                results.push(shared::BatchMetadataUpdateItemResult {
+                    contract_id: item.contract_id,
+                    ok: false,
+                    rollback_version_id: None,
+                    error: Some(format!("snapshot_failed: {}", e)),
+                });
+                failed += 1;
+                continue;
+            }
+        };
+
+        // Apply COALESCE UPDATE.
+        let mut after: Contract = match sqlx::query_as(
+            "UPDATE contracts
+             SET name        = COALESCE($2, name),
+                 description = COALESCE($3, description),
+                 category    = COALESCE($4, category),
+                 updated_at  = NOW()
+             WHERE id = $1
+             RETURNING *",
+        )
+        .bind(contract_uuid)
+        .bind(item.name.as_deref())
+        .bind(item.description.as_deref())
+        .bind(item.category.as_deref())
+        .fetch_one(&mut *tx)
+        .await
+        {
+            Ok(c) => c,
+            Err(e) => {
+                let _ = tx.rollback().await;
+                results.push(shared::BatchMetadataUpdateItemResult {
+                    contract_id: item.contract_id,
+                    ok: false,
+                    rollback_version_id: Some(rollback_version_id),
+                    error: Some(format!("update_failed: {}", e)),
+                });
+                failed += 1;
+                continue;
+            }
+        };
+
+        // Sync tags when the caller supplied a tag list.
+        let mut after_tag_names = before_tag_names.clone();
+        if let Some(tag_names) = &item.tags {
+            after_tag_names = tag_names.clone();
+
+            if let Err(e) = sqlx::query("DELETE FROM contract_tags WHERE contract_id = $1")
+                .bind(contract_uuid)
+                .execute(&mut *tx)
+                .await
+            {
+                let _ = tx.rollback().await;
+                results.push(shared::BatchMetadataUpdateItemResult {
+                    contract_id: item.contract_id,
+                    ok: false,
+                    rollback_version_id: Some(rollback_version_id),
+                    error: Some(format!("delete_tags_failed: {}", e)),
+                });
+                failed += 1;
+                continue;
+            }
+
+            let mut new_tags: Vec<shared::Tag> = Vec::new();
+            let mut tag_error: Option<String> = None;
+            for tag_name in tag_names {
+                let tag: Result<shared::Tag, _> = sqlx::query_as(
+                    "INSERT INTO tags (name) VALUES ($1)
+                     ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+                     RETURNING id, name, color",
+                )
+                .bind(tag_name)
+                .fetch_one(&mut *tx)
+                .await;
+
+                match tag {
+                    Ok(t) => {
+                        let link = sqlx::query(
+                            "INSERT INTO contract_tags (contract_id, tag_id)
+                             VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                        )
+                        .bind(contract_uuid)
+                        .bind(t.id)
+                        .execute(&mut *tx)
+                        .await;
+                        if let Err(e) = link {
+                            tag_error = Some(format!("link_tag_failed: {}", e));
+                            break;
+                        }
+                        new_tags.push(t);
+                    }
+                    Err(e) => {
+                        tag_error = Some(format!("upsert_tag_failed: {}", e));
+                        break;
+                    }
+                }
+            }
+
+            if let Some(err) = tag_error {
+                let _ = tx.rollback().await;
+                results.push(shared::BatchMetadataUpdateItemResult {
+                    contract_id: item.contract_id,
+                    ok: false,
+                    rollback_version_id: Some(rollback_version_id),
+                    error: Some(err),
+                });
+                failed += 1;
+                continue;
+            }
+            after.tags = new_tags;
+        }
+
+        // Commit this item.
+        if let Err(e) = tx.commit().await {
+            results.push(shared::BatchMetadataUpdateItemResult {
+                contract_id: item.contract_id,
+                ok: false,
+                rollback_version_id: Some(rollback_version_id),
+                error: Some(format!("commit_failed: {}", e)),
+            });
+            failed += 1;
+            continue;
+        }
+
+        // Audit log (best-effort, after commit).
+        let changes = json!({
+            "name":        { "before": before.name,        "after": after.name },
+            "description": { "before": before.description, "after": after.description },
+            "category":    { "before": before.category,    "after": after.category },
+            "tags":        { "before": before_tag_names,   "after": after_tag_names },
+            "batch_id":    &batch_id,
+        });
+        let _ = write_contract_audit_log(
+            &state.db,
+            AuditActionType::MetadataUpdated,
+            contract_uuid,
+            user_id.unwrap_or(before.publisher_id),
+            changes,
+            "batch",
+        )
+        .await;
+
+        results.push(shared::BatchMetadataUpdateItemResult {
+            contract_id: item.contract_id,
+            ok: true,
+            rollback_version_id: Some(rollback_version_id),
+            error: None,
+        });
+        succeeded += 1;
+    }
+
+    state.cache.invalidate_contracts().await;
+
+    Ok(Json(shared::BatchMetadataUpdateResponse {
+        batch_id,
+        total: results.len(),
+        succeeded,
+        failed,
+        results,
+    }))
 }
 
 #[utoipa::path(

@@ -528,6 +528,24 @@ pub fn contract_routes() -> Router<AppState> {
             "/api/contracts/status/bulk",
             post(handlers::bulk_update_contract_status),
         )
+        // Batch metadata update (#849) — static route must precede parameterised :id routes
+        .route(
+            "/api/contracts/metadata/batch",
+            post(handlers::batch_update_contract_metadata),
+        )
+        // Metadata history & rollback (#729, wired here)
+        .route(
+            "/api/contracts/:id/metadata/versions",
+            get(handlers::contract_metadata::get_metadata_versions),
+        )
+        .route(
+            "/api/contracts/:id/metadata/versions/:version_id",
+            get(handlers::contract_metadata::get_metadata_version),
+        )
+        .route(
+            "/api/contracts/:id/metadata/rollback/:version_id",
+            post(handlers::contract_metadata::rollback_metadata),
+        )
         .route(
             "/api/contracts/:id/performance",
             get(performance_handlers::get_contract_performance_overview),

@@ -797,6 +797,45 @@ pub struct UpdateContractMetadataRequest {
     pub user_id: Option<Uuid>,
 }
 
+/// Item in a batch metadata update request (#849)
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct BatchMetadataUpdateItem {
+    pub contract_id: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub category: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub change_summary: Option<String>,
+}
+
+/// Request body for POST /api/contracts/metadata/batch (#849)
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct BatchMetadataUpdateRequest {
+    pub items: Vec<BatchMetadataUpdateItem>,
+    pub user_id: Option<Uuid>,
+    /// Client-supplied UUID for correlating audit log entries across the batch
+    pub batch_id: Option<String>,
+}
+
+/// Per-item result within a batch metadata update response (#849)
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct BatchMetadataUpdateItemResult {
+    pub contract_id: String,
+    pub ok: bool,
+    pub rollback_version_id: Option<Uuid>,
+    pub error: Option<String>,
+}
+
+/// Response body for POST /api/contracts/metadata/batch (#849)
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct BatchMetadataUpdateResponse {
+    pub batch_id: String,
+    pub total: usize,
+    pub succeeded: usize,
+    pub failed: usize,
+    pub results: Vec<BatchMetadataUpdateItemResult>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ChangePublisherRequest {
     pub publisher_address: String,

@@ -6,6 +6,7 @@ mod audit_command;
 mod backup;
 mod batch_ops;
 mod batch_register;
+mod batch_update;
 mod batch_verify;
 mod cicd;
 mod codegen;
@@ -840,6 +841,37 @@ pub enum Commands {
         /// Validate all entries and show what would be registered without submitting
         #[arg(long)]
         dry_run: bool,
+
+        /// Output results as machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Update metadata for multiple contracts in bulk (#849)
+    BatchUpdate {
+        /// Path to a YAML or JSON manifest file describing the updates
+        #[arg(long)]
+        file: Option<String>,
+
+        /// Filter contracts from the API (e.g. "category=defi" or "network=mainnet")
+        #[arg(long)]
+        filter: Option<String>,
+
+        /// Show what would change without making any writes
+        #[arg(long)]
+        preview: bool,
+
+        /// Only update contracts where this field=value condition is true
+        #[arg(long, value_name = "CONDITION")]
+        r#if: Option<String>,
+
+        /// User ID to attribute the update to
+        #[arg(long)]
+        user_id: Option<String>,
+
+        /// On partial failure, rollback all successfully applied contracts
+        #[arg(long)]
+        rollback_on_error: bool,
 
         /// Output results as machine-readable JSON
         #[arg(long)]
@@ -3049,6 +3081,27 @@ pub async fn dispatch_command(
                 dry_run,
                 json,
             )
+            .await?;
+        }
+        Commands::BatchUpdate {
+            file,
+            filter,
+            preview,
+            r#if: condition,
+            user_id,
+            rollback_on_error,
+            json,
+        } => {
+            batch_update::run_batch_update(batch_update::BatchUpdateArgs {
+                api_url: &cli.api_url,
+                file: file.as_deref(),
+                filter: filter.as_deref(),
+                preview,
+                condition: condition.as_deref(),
+                user_id: user_id.as_deref(),
+                rollback_on_error,
+                json,
+            })
             .await?;
         }
         Commands::Batch {
