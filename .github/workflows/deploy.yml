@@ -37,12 +37,7 @@ jobs:
 
       - name: Build Backend
         run: cargo build --release --manifest-path backend/Cargo.toml
-
-      - name: Build Docker Image
-        run: |
-          docker build -t soroban-registry-api:${{ github.sha }} -f backend/Dockerfile .
-          # In a real environment, you'd push to ECR/GCR/DockerHub here:
-          # docker push soroban-registry-api:${{ github.sha }}
+      # Docker image build removed (not performed in CI)
 
   deploy:
     name: Deploy
