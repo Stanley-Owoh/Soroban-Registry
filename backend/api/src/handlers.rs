@@ -2029,6 +2029,33 @@ pub async fn list_contracts(
 
     let mut response = PaginatedResponse::new(contracts, total, page, limit);
 
+    // Populate active filter metadata
+    {
+        let mut networks: Option<Vec<String>> = None;
+        if let Some(n) = &params.networks {
+            if !n.is_empty() {
+                networks = Some(n.iter().map(|net| net.to_string()).collect());
+            }
+        } else if let Some(n) = &params.network {
+            networks = Some(vec![n.to_string()]);
+        }
+        let categories = params.categories.clone().filter(|c| !c.is_empty());
+        let tags = params.tags.clone().filter(|t| !t.is_empty());
+        let verified_only = params.verified_only;
+        let verification_status = params.verification_status.as_ref().map(|s| s.to_string());
+
+        let filters = shared::SearchFilterMetadata {
+            networks,
+            categories,
+            verified_only,
+            verification_status,
+            tags,
+            maturity: params.maturity.as_ref().map(|m| format!("{:?}", m)),
+            query: params.query.clone(),
+        };
+        response = response.with_filters(filters);
+    }
+
     if has_more {
         if let Some(last_item) = response.items.last() {
             let next_cursor = shared::pagination::Cursor::new(last_item.created_at, last_item.id);

@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use crate::net::RequestBuilderExt;
+use crate::output_format;
 use anyhow::{Context, Result};
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
@@ -4031,6 +4032,8 @@ pub async fn stats(
     format: &str,
     output: Option<&str>,
 ) -> Result<()> {
+    let fmt = output_format::validate_format(format).unwrap_or(output_format::OutputFormat::Table);
+
     let client = crate::net::client();
     let url = format!("{}/api/stats?timeframe={}", api_url, timeframe);
 
@@ -4050,11 +4053,14 @@ pub async fn stats(
     let stats: serde_json::Value = response.json().await?;
 
     // Format output
-    let output_str = match format {
-        "json" => serde_json::to_string_pretty(&stats)?,
-        "yaml" => serde_yaml::to_string(&stats)?,
-        "table" => format_stats_table(&stats),
-        _ => anyhow::bail!("Invalid format: {}. Use table, json, or yaml", format),
+    let output_str = match fmt {
+        output_format::OutputFormat::Json => serde_json::to_string_pretty(&stats)?,
+        output_format::OutputFormat::Yaml => serde_yaml::to_string(&stats)?,
+        output_format::OutputFormat::Table => format_stats_table(&stats),
+        output_format::OutputFormat::Csv => {
+            let flat = serde_json::json!([stats]);
+            output_format::render_csv(&flat)?
+        }
     };
 
     if let Some(path) = output {
