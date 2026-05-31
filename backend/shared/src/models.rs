@@ -919,6 +919,51 @@ pub struct BatchVerifyRequest {
     pub contracts: Vec<BatchVerifyItem>,
 }
 
+/// Lifecycle state of an asynchronous batch verification job.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BatchVerifyJobStatus {
+    Pending,
+    Processing,
+    Completed,
+    /// Job finished but at least one contract could not be verified.
+    PartialFailure,
+    Failed,
+}
+
+/// Per-contract result inside a batch job.
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct BatchVerifyJobResult {
+    pub contract_id: String,
+    pub verified: bool,
+    /// Human-readable failure reason; absent on success.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub network: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wasm_hash_matches: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub abi_valid: Option<bool>,
+}
+
+/// Response returned when a batch job is submitted or polled.
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct BatchVerifyJobResponse {
+    pub job_id: Uuid,
+    pub status: BatchVerifyJobStatus,
+    pub total: usize,
+    pub verified: usize,
+    pub failed: usize,
+    pub submitted_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<DateTime<Utc>>,
+    /// Per-contract results; populated once the job reaches Completed or PartialFailure.
+    #[serde(default)]
+    pub results: Vec<BatchVerifyJobResult>,
+    pub status_url: String,
+}
+
 /// Sorting options for contracts
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, utoipa::ToSchema)]
 pub enum SortBy {
