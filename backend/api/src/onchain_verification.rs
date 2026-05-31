@@ -21,6 +21,47 @@ const DEFAULT_RPC_MAX_RETRIES: u32 = 3;
 const DEFAULT_ACTIVITY_LOOKBACK_LEDGERS: u32 = 2_000;
 const DEFAULT_ACTIVITY_LIMIT: u32 = 25;
 
+/// Precise reason an on-chain verification check failed.
+///
+/// Each variant carries just enough context for the caller to understand
+/// *why* verification failed and what action to take — without leaking
+/// internal RPC details or stack traces.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "reason", rename_all = "snake_case")]
+pub enum OnChainFailureReason {
+    /// The contract address does not exist on the queried network.
+    ContractNotOnChain {
+        contract_id: String,
+        network: String,
+        hint: String,
+    },
+    /// The stored wasm hash does not match the hash found on-chain.
+    WasmHashMismatch {
+        stored: String,
+        on_chain: String,
+        hint: String,
+    },
+    /// An ABI is stored but cannot be parsed against the contract spec.
+    AbiMismatch { detail: String },
+    /// No ABI is available; interface conformance cannot be confirmed.
+    AbiMissing,
+}
+
+impl std::fmt::Display for OnChainFailureReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ContractNotOnChain { contract_id, network, .. } => {
+                write!(f, "contract {contract_id} not found on {network}")
+            }
+            Self::WasmHashMismatch { stored, on_chain, .. } => {
+                write!(f, "wasm hash mismatch: stored={stored} on_chain={on_chain}")
+            }
+            Self::AbiMismatch { detail } => write!(f, "abi mismatch: {detail}"),
+            Self::AbiMissing => write!(f, "abi missing"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OnChainVerificationResult {
     pub contract_id: String,
@@ -38,6 +79,9 @@ pub struct OnChainVerificationResult {
     pub stored_wasm_hash: String,
     pub wasm_hash_matches: bool,
     pub warnings: Vec<String>,
+    /// Structured failure reasons collected during verification.
+    /// Empty when verification passes; contains at least one entry on failure.
+    pub failure_reasons: Vec<OnChainFailureReason>,
 }
 
 impl OnChainVerificationResult {
@@ -123,12 +167,21 @@ impl OnChainVerifier {
         let latest_ledger = self.get_latest_ledger(&config).await.ok();
 
         let mut warnings = Vec::new();
+        let mut failure_reasons: Vec<OnChainFailureReason> = Vec::new();
+
         let on_chain = match self
             .fetch_contract_instance(&config, &contract.contract_id)
             .await?
         {
             Some(value) => value,
             None => {
+                failure_reasons.push(OnChainFailureReason::ContractNotOnChain {
+                    contract_id: contract.contract_id.clone(),
+                    network: contract.network.to_string(),
+                    hint: "Verify the contract address is correct and that it has been deployed \
+                           to the specified network."
+                        .to_string(),
+                });
                 let result = OnChainVerificationResult {
                     contract_id: contract.contract_id.clone(),
                     network: contract.network.to_string(),
@@ -146,6 +199,7 @@ impl OnChainVerifier {
                     stored_wasm_hash: contract.wasm_hash.clone(),
                     wasm_hash_matches: false,
                     warnings,
+                    failure_reasons,
                 };
                 cache
                     .put_verification(
@@ -175,11 +229,26 @@ impl OnChainVerifier {
         };
 
         let abi_available = abi_json.is_some();
-        let abi_valid = abi_json
-            .map(|abi| parse_json_spec(abi, &contract.contract_id).is_ok())
+        let abi_parse_result = abi_json.map(|abi| parse_json_spec(abi, &contract.contract_id));
+        let abi_valid = abi_parse_result
+            .as_ref()
+            .map(|r| r.is_ok())
             .unwrap_or(false);
+
         if abi_available && !abi_valid {
-            warnings.push("stored ABI could not be parsed successfully".to_string());
+            let detail = abi_parse_result
+                .and_then(|r| r.err())
+                .map(|e| e.to_string())
+                .unwrap_or_else(|| "unknown parse error".to_string());
+            let summary = if detail.len() > 200 {
+                format!("{}…", &detail[..200])
+            } else {
+                detail
+            };
+            warnings.push(format!("stored ABI could not be parsed: {summary}"));
+            failure_reasons.push(OnChainFailureReason::AbiMismatch { detail: summary });
+        } else if !abi_available {
+            failure_reasons.push(OnChainFailureReason::AbiMissing);
         }
 
         let recent_call_count = match latest_ledger {
@@ -208,6 +277,16 @@ impl OnChainVerifier {
                 .map(|hash| contract.wasm_hash.eq_ignore_ascii_case(hash))
                 .unwrap_or(false);
 
+        if !wasm_hash_matches {
+            failure_reasons.push(OnChainFailureReason::WasmHashMismatch {
+                stored: contract.wasm_hash.clone(),
+                on_chain: on_chain_wasm_hash.clone(),
+                hint: "Ensure the registry entry references the correct deployed wasm hash. \
+                       Re-publish the contract if the wasm was updated on-chain."
+                    .to_string(),
+            });
+        }
+
         let result = OnChainVerificationResult {
             contract_id: contract.contract_id.clone(),
             network: contract.network.to_string(),
@@ -225,6 +304,7 @@ impl OnChainVerifier {
             stored_wasm_hash: contract.wasm_hash.clone(),
             wasm_hash_matches,
             warnings,
+            failure_reasons,
         };
 
         cache
@@ -554,6 +634,38 @@ struct TransactionResponse {
 mod tests {
     use super::*;
 
+    fn dummy_contract(network: Network, wasm_hash: &str) -> Contract {
+        Contract {
+            id: uuid::Uuid::nil(),
+            contract_id: "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4".to_string(),
+            wasm_hash: wasm_hash.to_string(),
+            name: "demo".to_string(),
+            slug: "demo".to_string(),
+            description: None,
+            publisher_id: uuid::Uuid::nil(),
+            network,
+            is_verified: false,
+            verification_status: shared::VerificationStatus::Unverified,
+            category: None,
+            tags: Vec::new(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            deployed_at: None,
+            verified_at: None,
+            verified_by: None,
+            verification_notes: None,
+            last_accessed_at: None,
+            health_score: 0,
+            is_maintenance: false,
+            logical_id: None,
+            network_configs: None,
+            organization_id: None,
+            relevance_score: None,
+            visibility: shared::VisibilityType::Public,
+            current_version: None,
+        }
+    }
+
     #[test]
     fn contract_strkey_parses() {
         let parsed =
@@ -570,34 +682,75 @@ mod tests {
 
     #[test]
     fn cache_key_is_network_specific() {
-        let contract = Contract {
-            id: uuid::Uuid::nil(),
-            contract_id: "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4".to_string(),
-            wasm_hash: "abc123".to_string(),
-            name: "demo".to_string(),
-            description: None,
-            publisher_id: uuid::Uuid::nil(),
-            network: Network::Testnet,
-            is_verified: false,
-            category: None,
-            tags: Vec::new(),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-            health_score: 0,
-            is_maintenance: false,
-            logical_id: None,
-            network_configs: None,
-            verified_at: None,
-            last_accessed_at: None,
-            organization_id: None,
-            relevance_score: None,
-            visibility: shared::VisibilityType::Public,
-            current_version: None,
-        };
-
+        let contract = dummy_contract(Network::Testnet, "abc123");
         assert_eq!(
             OnChainVerificationResult::cache_key(&contract),
             "onchain:testnet:CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4:abc123"
         );
+    }
+
+    // ── Failure-reason unit tests ─────────────────────────────────────────────
+
+    #[test]
+    fn missing_artifact_reason_serialises_and_deserialises() {
+        let reason = OnChainFailureReason::ContractNotOnChain {
+            contract_id: "CXXX".to_string(),
+            network: "testnet".to_string(),
+            hint: "check deployment".to_string(),
+        };
+        let json = serde_json::to_string(&reason).expect("should serialise");
+        assert!(json.contains("\"reason\":\"contract_not_on_chain\""));
+        let back: OnChainFailureReason =
+            serde_json::from_str(&json).expect("should deserialise");
+        assert_eq!(back, reason);
+    }
+
+    #[test]
+    fn wasm_hash_mismatch_reason_serialises() {
+        let reason = OnChainFailureReason::WasmHashMismatch {
+            stored: "aaaa".to_string(),
+            on_chain: "bbbb".to_string(),
+            hint: "re-publish".to_string(),
+        };
+        let json = serde_json::to_string(&reason).expect("should serialise");
+        assert!(json.contains("\"reason\":\"wasm_hash_mismatch\""));
+    }
+
+    #[test]
+    fn abi_mismatch_reason_contains_detail() {
+        let reason = OnChainFailureReason::AbiMismatch {
+            detail: "unexpected field".to_string(),
+        };
+        let json = serde_json::to_string(&reason).expect("should serialise");
+        assert!(json.contains("\"reason\":\"abi_mismatch\""));
+        assert!(json.contains("unexpected field"));
+    }
+
+    #[test]
+    fn abi_missing_reason_serialises() {
+        let reason = OnChainFailureReason::AbiMissing;
+        let json = serde_json::to_string(&reason).expect("should serialise");
+        assert!(json.contains("\"reason\":\"abi_missing\""));
+    }
+
+    #[test]
+    fn failure_reason_display_messages_are_user_friendly() {
+        assert!(OnChainFailureReason::AbiMissing
+            .to_string()
+            .contains("abi missing"));
+        assert!(OnChainFailureReason::WasmHashMismatch {
+            stored: "s".to_string(),
+            on_chain: "o".to_string(),
+            hint: "h".to_string(),
+        }
+        .to_string()
+        .contains("wasm hash mismatch"));
+        assert!(OnChainFailureReason::ContractNotOnChain {
+            contract_id: "C".to_string(),
+            network: "mainnet".to_string(),
+            hint: "check".to_string(),
+        }
+        .to_string()
+        .contains("not found on mainnet"));
     }
 }
