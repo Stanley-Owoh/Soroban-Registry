@@ -14,7 +14,7 @@ use crate::{
                   usdc_handlers as mp_usdc},
     elasticsearch_handlers, integrity, metrics_handler, migration_handlers, mutation_testing_handlers,
     org_handlers, partition_manager, patch_handlers, performance_handlers,
-    plugin_marketplace_handlers, publisher_verification_handlers, query_monitor,
+    plugin_marketplace_handlers, publisher_verification_handlers, query_analysis, query_monitor,
     recommendation_handlers, report_handlers, resource_handlers, search_postgres,
     security_scan_handlers, similarity_handlers, simulation_handlers, state::AppState,
     state_monitor::handlers as state_monitor_handlers, stats, subscription_handlers,
@@ -88,6 +88,50 @@ pub fn application_routes(_schema: crate::graphql::schema::RegistrySchema) -> Ro
         .merge(integrity_routes())
         // Discovery & reporting endpoints (issues #870–#873)
         .merge(discovery_reporting_routes())
+        // Application-side query logging & analysis (issue #887)
+        .merge(query_analysis_routes())
+}
+
+// ── Issue #887: application-side query logging and analysis ──────────────────
+
+pub fn query_analysis_routes() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/api/admin/db/queries/stats",
+            get(query_analysis::get_query_stats),
+        )
+        .route(
+            "/api/admin/db/queries/frequent",
+            get(query_analysis::get_frequent_queries),
+        )
+        .route(
+            "/api/admin/db/queries/slow",
+            get(query_analysis::get_slow_queries),
+        )
+        .route(
+            "/api/admin/db/queries/n-plus-one",
+            get(query_analysis::get_nplus1),
+        )
+        .route(
+            "/api/admin/db/queries/trends",
+            get(query_analysis::get_query_trends),
+        )
+        .route(
+            "/api/admin/db/queries/incidents",
+            get(query_analysis::get_nplus1_incidents),
+        )
+        .route(
+            "/api/admin/db/queries/report",
+            get(query_analysis::get_query_report),
+        )
+        .route(
+            "/api/admin/db/queries/explain",
+            post(query_analysis::explain_query),
+        )
+        .route(
+            "/api/admin/db/queries/reset",
+            post(query_analysis::reset_query_stats),
+        )
 }
 
 fn multisig_routes_group() -> Router<AppState> {

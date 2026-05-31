@@ -14,7 +14,6 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use axum::http::StatusCode;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use once_cell::sync::Lazy;
