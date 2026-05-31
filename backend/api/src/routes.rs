@@ -16,7 +16,8 @@ use crate::{
     org_handlers, partition_manager, patch_handlers, performance_handlers,
     plugin_marketplace_handlers, publisher_verification_handlers, query_monitor,
     recommendation_handlers, report_handlers, resource_handlers, search_postgres,
-    security_scan_handlers, similarity_handlers, simulation_handlers, state::AppState,
+    security_scan_handlers, signature_verification, similarity_handlers, simulation_handlers,
+    state::AppState,
     state_monitor::handlers as state_monitor_handlers, stats, subscription_handlers,
     v1_similar_handlers, v1_trending_handlers,
     verification_handlers, websocket, zk_proof_handlers,
@@ -88,6 +89,50 @@ pub fn application_routes(_schema: crate::graphql::schema::RegistrySchema) -> Ro
         .merge(integrity_routes())
         // Discovery & reporting endpoints (issues #870–#873)
         .merge(discovery_reporting_routes())
+        // Contract signature verification system (issue #888)
+        .merge(signature_verification_routes())
+}
+
+// ── Issue #888: contract signature verification system ───────────────────────
+
+pub fn signature_verification_routes() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/api/signatures/keys",
+            post(signature_verification::register_key),
+        )
+        .route(
+            "/api/signatures/keys/:key_id",
+            get(signature_verification::get_key),
+        )
+        .route(
+            "/api/signatures/keys/:key_id/rotate",
+            post(signature_verification::rotate_key),
+        )
+        .route(
+            "/api/signatures/keys/:key_id/revoke",
+            post(signature_verification::revoke_key),
+        )
+        .route(
+            "/api/signatures/keys/:key_id/verify-chain",
+            post(signature_verification::verify_chain),
+        )
+        .route(
+            "/api/signatures/revocations",
+            get(signature_verification::list_revocations),
+        )
+        .route(
+            "/api/signatures",
+            post(signature_verification::store_signature),
+        )
+        .route(
+            "/api/signatures/verify",
+            post(signature_verification::verify),
+        )
+        .route(
+            "/api/contracts/:id/signatures",
+            get(signature_verification::list_contract_signatures),
+        )
 }
 
 fn multisig_routes_group() -> Router<AppState> {
