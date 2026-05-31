@@ -27,7 +27,7 @@
 //! store (e.g. via the `upstash-redis` crate or `fred`).
 
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     env,
     net::{IpAddr, SocketAddr},
     time::{Duration, Instant},
@@ -47,10 +47,10 @@ use tokio::sync::Mutex;
 
 use crate::error::ApiError;
 
-// Issue #609: 1,000 requests per hour per IP (anonymous), 1,000 per hour authenticated
+// Issue #891: 1,000 requests per minute per IP/API key by default.
 const DEFAULT_ANON_LIMIT: u32 = 1_000;
 const DEFAULT_AUTH_LIMIT: u32 = 1_000;
-const DEFAULT_WINDOW_SECONDS: u64 = 3_600; // 1 hour
+const DEFAULT_WINDOW_SECONDS: u64 = 60;
 #[allow(dead_code)]
 const DEFAULT_CONTRACTS_PAGE_SIZE: u32 = 50;
 #[allow(dead_code)]
@@ -59,8 +59,8 @@ const ABI_ENDPOINT_LIMIT_PER_MINUTE: u32 = 1_000;
 #[allow(dead_code)]
 const ENDPOINT_LIMIT_ENV_PREFIX: &str = "RATE_LIMIT_ENDPOINT_";
 
-/// Issue #727 — tiered hourly limits
-const FREE_TIER_LIMIT: u32 = 100;
+/// Issue #727 — tiered limits over the configured window.
+const FREE_TIER_LIMIT: u32 = 1_000;
 const PRO_TIER_LIMIT: u32 = 10_000;
 const BURST_WINDOW_SECONDS: u64 = 60; // 1 minute burst window
 
@@ -333,8 +333,11 @@ impl RateLimitState {
         }
 
         if let Some(token) = extract_auth_token(request) {
-            let hourly = self.config.hourly_limit_for_tier(&tier);
-            let burst = self.config.burst_limit_for_tier(&tier);
+            let hourly = self
+                .config
+                .per_api_key_limit(&token)
+                .unwrap_or_else(|| self.config.hourly_limit_for_tier(&tier));
+            let burst = self.config.burst_limit_for_limit(hourly);
             return (
                 hourly,
                 burst,
@@ -345,7 +348,7 @@ impl RateLimitState {
             );
         }
 
-        let hourly_base = self.config.hourly_limit_for_tier(&tier);
+        let hourly_base = self.config.anonymous_limit;
         let hourly = if let Some(page_size) =
             contracts_page_size_rate_limit(request.method(), path, query)
         {
@@ -353,7 +356,7 @@ impl RateLimitState {
         } else {
             hourly_base
         };
-        let burst = self.config.burst_limit_for_tier(&tier);
+        let burst = self.config.burst_limit_for_limit(hourly);
 
         (
             hourly,
@@ -372,32 +375,37 @@ struct RateLimitConfig {
     window: Duration,
     enterprise_limit: u32,
     burst_window: Duration,
+    per_api_key_limits: HashMap<String, u32>,
+    trusted_client_ips: HashSet<String>,
+    trusted_api_keys: HashSet<String>,
 }
 
 impl RateLimitConfig {
     fn from_env() -> Self {
-        // Issue #609: configurable per-IP limits; defaults to 1000 req/hour.
-        // Env vars: RATE_LIMIT_ANON_PER_HOUR (preferred) or legacy RATE_LIMIT_ANON_PER_MINUTE / RATE_LIMIT_READ_PER_MINUTE
+        // Issue #891: configurable per-IP and per-API-key limits; defaults to 1000 req/min.
         let anonymous_limit = env_u32_with_fallback(
-            "RATE_LIMIT_ANON_PER_HOUR",
+            "RATE_LIMIT_IP_PER_MINUTE",
             "RATE_LIMIT_ANON_PER_MINUTE",
             DEFAULT_ANON_LIMIT,
         );
         let auth_limit = env_u32_with_fallback(
-            "RATE_LIMIT_AUTH_PER_HOUR",
+            "RATE_LIMIT_API_KEY_PER_MINUTE",
             "RATE_LIMIT_AUTH_PER_MINUTE",
             DEFAULT_AUTH_LIMIT,
         );
         let window_seconds = env_u64("RATE_LIMIT_WINDOW_SECONDS", DEFAULT_WINDOW_SECONDS).max(1);
         // Issue #727: enterprise tier custom limit
-        let enterprise_limit = env_u32("ENTERPRISE_RATE_LIMIT_PER_HOUR", 100_000);
+        let enterprise_limit = env_u32("ENTERPRISE_RATE_LIMIT_PER_WINDOW", 100_000);
+        let per_api_key_limits = parse_key_limit_map("RATE_LIMIT_API_KEY_LIMITS");
+        let trusted_client_ips = parse_csv_set("RATE_LIMIT_TRUSTED_IPS");
+        let trusted_api_keys = parse_csv_set("RATE_LIMIT_TRUSTED_API_KEYS");
 
         tracing::info!(
             anonymous_limit,
             auth_limit,
             window_seconds,
             enterprise_limit,
-            "Rate limiter configured (issue #609/#727: tiered quotas)"
+            "Rate limiter configured (issue #891/#727: per-IP/API-key quotas)"
         );
 
         Self {
@@ -406,6 +414,9 @@ impl RateLimitConfig {
             window: Duration::from_secs(window_seconds),
             enterprise_limit,
             burst_window: Duration::from_secs(BURST_WINDOW_SECONDS),
+            per_api_key_limits,
+            trusted_client_ips,
+            trusted_api_keys,
         }
     }
 
@@ -417,14 +428,17 @@ impl RateLimitConfig {
             window,
             enterprise_limit: 100_000,
             burst_window: Duration::from_secs(BURST_WINDOW_SECONDS),
+            per_api_key_limits: HashMap::new(),
+            trusted_client_ips: HashSet::new(),
+            trusted_api_keys: HashSet::new(),
         }
     }
 
     /// Returns the hourly limit for the given tier.
     fn hourly_limit_for_tier(&self, tier: &ApiTier) -> u32 {
         match tier {
-            ApiTier::Free => FREE_TIER_LIMIT,
-            ApiTier::Pro => PRO_TIER_LIMIT,
+            ApiTier::Free => self.auth_limit.max(FREE_TIER_LIMIT),
+            ApiTier::Pro => self.auth_limit.max(PRO_TIER_LIMIT),
             ApiTier::Enterprise => self.enterprise_limit,
         }
     }
@@ -432,8 +446,40 @@ impl RateLimitConfig {
     /// Burst limit = ceil(hourly_limit × 1.2 / 60) requests per minute.
     fn burst_limit_for_tier(&self, tier: &ApiTier) -> u32 {
         let hourly = self.hourly_limit_for_tier(tier);
+        self.burst_limit_for_limit(hourly)
+    }
+
+    fn burst_limit_for_limit(&self, hourly: u32) -> u32 {
         // 120 % of the per-minute equivalent; minimum 1
         ((hourly as f64 * 1.2 / 60.0).ceil() as u32).max(1)
+    }
+
+    fn per_api_key_limit(&self, token: &str) -> Option<u32> {
+        let normalized = token
+            .strip_prefix("Bearer ")
+            .or_else(|| token.strip_prefix("ApiKey "))
+            .unwrap_or(token)
+            .trim();
+        self.per_api_key_limits.get(normalized).copied()
+    }
+
+    fn is_whitelisted<B>(&self, request: &Request<B>) -> bool {
+        let client_ip = extract_client_ip(request);
+        if self.trusted_client_ips.contains(&client_ip) {
+            return true;
+        }
+
+        extract_auth_token(request)
+            .map(|token| {
+                let normalized = token
+                    .strip_prefix("Bearer ")
+                    .or_else(|| token.strip_prefix("ApiKey "))
+                    .unwrap_or(&token)
+                    .trim()
+                    .to_string();
+                self.trusted_api_keys.contains(&normalized)
+            })
+            .unwrap_or(false)
     }
 }
 
@@ -460,6 +506,10 @@ pub async fn rate_limit_middleware(
     request: Request<Body>,
     next: Next,
 ) -> Response {
+    if rate_limiter.config.is_whitelisted(&request) {
+        return next.run(request).await;
+    }
+
     // Extract request metadata before awaiting to avoid borrowing `request` across `.await`.
     let (hourly_limit, burst_limit, key, tier) = rate_limiter.select_limit_and_key(&request);
     let decision = rate_limiter
@@ -556,6 +606,16 @@ fn extract_api_tier<B>(request: &Request<B>) -> ApiTier {
 }
 
 fn extract_auth_token<B>(request: &Request<B>) -> Option<String> {
+    if let Some(api_key) = request
+        .headers()
+        .get("x-api-key")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        return Some(api_key.to_string());
+    }
+
     request
         .headers()
         .get(AUTHORIZATION)
@@ -563,6 +623,29 @@ fn extract_auth_token<B>(request: &Request<B>) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
+}
+
+fn parse_key_limit_map(key: &str) -> HashMap<String, u32> {
+    std::env::var(key)
+        .unwrap_or_default()
+        .split(',')
+        .filter_map(|entry| {
+            let (api_key, limit) = entry.split_once('=')?;
+            let limit = limit.trim().parse::<u32>().ok()?;
+            (limit > 0).then(|| (api_key.trim().to_string(), limit))
+        })
+        .filter(|(api_key, _)| !api_key.is_empty())
+        .collect()
+}
+
+fn parse_csv_set(key: &str) -> HashSet<String> {
+    std::env::var(key)
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
 }
 
 fn parse_x_forwarded_for(raw: &str) -> Option<IpAddr> {

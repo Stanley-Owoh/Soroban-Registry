@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use axum::extract::{Request, State};
-use axum::http::{header, HeaderName, HeaderValue, Method, StatusCode};
+use axum::http::StatusCode;
 use axum::middleware;
 use axum::response::Response;
 use prometheus::Registry;
@@ -12,7 +12,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast;
-use tower_http::cors::CorsLayer;
 use tracing::{error, info, warn};
 
 use api::aggregation;
@@ -29,6 +28,7 @@ use api::rate_limit;
 use api::rate_limit::RateLimitState;
 use api::request_tracing;
 use api::routes;
+use api::security::WebSecurityConfig;
 use api::state::AppState;
 use api::state_monitor::StateMonitorService;
 use api::validation;
@@ -281,47 +281,8 @@ async fn main() -> Result<()> {
     // Warm up the cache
     state.cache.clone().warm_up(pool.clone());
 
-    let allowed_origins = std::env::var("ALLOWED_ORIGINS").unwrap_or_else(|_| {
-        "http://localhost:3000,https://soroban-registry.vercel.app".to_string()
-    });
-
-    let origins: Vec<HeaderValue> = allowed_origins
-        .split(',')
-        .filter_map(|s| {
-            let s = s.trim();
-            if s.is_empty() {
-                None
-            } else {
-                Some(HeaderValue::from_str(s).expect("Invalid allowed origin"))
-            }
-        })
-        .collect();
-
-    let cors = CorsLayer::new()
-        .allow_origin(origins)
-        .allow_methods([
-            Method::GET,
-            Method::POST,
-            Method::PATCH,
-            Method::DELETE,
-            Method::OPTIONS,
-        ])
-        .allow_headers([
-            header::CONTENT_TYPE,
-            header::AUTHORIZATION,
-            request_tracing::X_REQUEST_ID.clone(),
-            request_tracing::X_CORRELATION_ID.clone(),
-        ])
-        .expose_headers([
-            request_tracing::X_REQUEST_ID.clone(),
-            request_tracing::X_CORRELATION_ID.clone(),
-            header::RETRY_AFTER,
-            HeaderName::from_static("x-ratelimit-limit"),
-            HeaderName::from_static("x-ratelimit-remaining"),
-            HeaderName::from_static("x-ratelimit-reset"),
-            HeaderName::from_static("x-ratelimit-tier"),
-        ])
-        .max_age(Duration::from_secs(3600));
+    let web_security = WebSecurityConfig::from_env();
+    let cors = web_security.build_cors_layer();
 
     // Build router
     let app = routes::application_routes(schema)
@@ -343,6 +304,10 @@ async fn main() -> Result<()> {
         .layer(middleware::from_fn_with_state(
             (*rate_limit_state).clone(),
             rate_limit::rate_limit_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            web_security,
+            api::security::csrf_and_origin_middleware,
         ))
         .layer(cors)
         .layer(middleware::from_fn(request_tracing::tracing_middleware))

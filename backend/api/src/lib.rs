@@ -75,6 +75,7 @@ pub mod resource_handlers;
 pub mod resource_tracking;
 pub mod routes;
 pub mod search_client;
+pub mod security;
 pub mod security_scan_handlers;
 pub mod signing_handlers;
 pub mod similarity_handlers;
@@ -85,6 +86,7 @@ pub mod subscription_handlers;
 pub mod usage_counter;
 pub mod validation;
 pub mod verification_handlers;
+pub mod vulnerability_database;
 pub mod websocket;
 pub mod zk_proof_handlers;
 

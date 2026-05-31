@@ -132,6 +132,7 @@ pub fn signature_verification_routes() -> Router<AppState> {
         .route(
             "/api/contracts/:id/signatures",
             get(signature_verification::list_contract_signatures),
+        )
         // Application-side query logging & analysis (issue #887)
         .merge(query_analysis_routes())
 }
@@ -211,8 +212,10 @@ pub fn observability_routes() -> Router<AppState> {
 
 pub fn auth_routes() -> Router<AppState> {
     Router::new()
+        .route("/api/auth/csrf", get(auth_handlers::get_csrf_token))
         .route("/api/auth/challenge", get(auth_handlers::get_challenge))
         .route("/api/auth/verify", post(auth_handlers::verify_challenge))
+        .route("/api/auth/refresh", post(auth_handlers::refresh_token))
 }
 
 pub fn validator_routes() -> Router<AppState> {
