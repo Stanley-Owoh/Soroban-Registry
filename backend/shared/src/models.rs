@@ -1429,7 +1429,32 @@ pub struct PaginatedVersionResponse {
     pub prev_cursor: Option<String>,
 }
 
-/// Paginated response
+/// Active search/list filter metadata included in paginated responses
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct SearchFilterMetadata {
+    /// Applied network filters
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub networks: Option<Vec<String>>,
+    /// Applied category filters
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub categories: Option<Vec<String>>,
+    /// Whether only verified contracts are shown
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verified_only: Option<bool>,
+    /// Verification status filter
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_status: Option<String>,
+    /// Applied tag filters
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+    /// Maturity level filter
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub maturity: Option<String>,
+    /// Text query
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub query: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct PaginatedResponse<T> {
     pub items: Vec<T>,
@@ -1445,6 +1470,9 @@ pub struct PaginatedResponse<T> {
     pub next_cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_cursor: Option<String>,
+    /// Active filters applied to this result set (only present for search/list endpoints)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filters: Option<SearchFilterMetadata>,
 }
 
 impl<T> PaginatedResponse<T> {
@@ -1462,7 +1490,13 @@ impl<T> PaginatedResponse<T> {
             total_pages,
             next_cursor: None,
             prev_cursor: None,
+            filters: None,
         }
+    }
+
+    pub fn with_filters(mut self, filters: SearchFilterMetadata) -> Self {
+        self.filters = Some(filters);
+        self
     }
 
     pub fn with_cursors(mut self, next: Option<String>, prev: Option<String>) -> Self {

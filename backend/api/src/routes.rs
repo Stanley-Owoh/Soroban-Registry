@@ -7,7 +7,7 @@ use crate::{
     collaborative_reviews, compatibility_testing_handlers, contract_events,
     contract_stats_handlers, contributor_handlers, custom_metrics_handlers, dependency_handlers,
     deprecated_contracts_handlers, deprecation_handlers, error_logging,
-    formal_verification_handlers, gas_estimation_handlers,
+    feature_flags, formal_verification_handlers, gas_estimation_handlers,
     governance_handlers, graph_analysis_handlers, handlers, interoperability_handlers,
     marketplace::{license_handlers as mp_license, metering as mp_metering,
                   pricing_handlers as mp_pricing, stripe_handlers as mp_stripe,
@@ -91,6 +91,8 @@ pub fn application_routes(_schema: crate::graphql::schema::RegistrySchema) -> Ro
         .merge(discovery_reporting_routes())
         // Contract signature verification system (issue #888)
         .merge(signature_verification_routes())
+        // Backend feature flag management (issue #1007)
+        .merge(feature_flag_routes())
 }
 
 // ── Issue #888: contract signature verification system ───────────────────────
@@ -1546,5 +1548,14 @@ pub fn discovery_reporting_routes() -> Router<AppState> {
         .route(
             "/api/v1/trending",
             get(v1_trending_handlers::get_trending_v1),
+        )
+}
+
+// ── Issue #1007: Backend feature flag management ───────────────────────────
+pub fn feature_flag_routes() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/api/feature-flags",
+            get(crate::feature_flags::get_flag_status_handler),
         )
 }

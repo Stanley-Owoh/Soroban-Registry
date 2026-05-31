@@ -4299,6 +4299,8 @@ pub enum Commands {
     Cache {
         #[command(subcommand)]
         action: CacheCommands,
+    },
+
     /// Manage environment variable sets for different deployments (#843)
     Env {
         #[command(subcommand)]
@@ -5087,15 +5089,25 @@ pub enum ContractCommands {
         json: bool,
     },
 
-    /// Analyze a contract's dependencies and relationships (#836)
+    /// Analyze a contract's dependencies and relationships (#836, #1008)
+    ///
+    /// Retrieves the full dependency graph: contracts this address depends on,
+    /// contracts that depend on it, and a recursive dependency tree.
+    ///
+    /// Use `--summary` for a compact view when dealing with large graphs.
+    /// Use `--format json` to get the raw API response for scripting.
     Dependency {
         /// On-chain contract address
         address: String,
-        /// Dependency tree depth
+        /// Dependency tree depth (0 = direct dependencies only)
         #[arg(long, default_value_t = 1)]
         depth: u32,
+        /// Output format: table, json, csv, yaml
+        #[arg(long, default_value = "table")]
+        format: String,
+        /// Compact summary mode: show aggregate counts without the full tree
         #[arg(long)]
-        json: bool,
+        summary: bool,
     },
 
     /// Import contracts into the registry from an external file (#831)
@@ -7019,6 +7031,10 @@ pub async fn dispatch_command(
                     &address,
                     &network,
                     threshold.as_deref(),
+                    json,
+                )
+                .await?;
+            }
             ContractCommands::Stats {
                 network,
                 category,
@@ -7075,6 +7091,7 @@ pub async fn dispatch_command(
                     page_size,
                 )
                 .await?;
+            }
             ContractCommands::Highlight {
                 address,
                 action,
@@ -7102,10 +7119,13 @@ pub async fn dispatch_command(
             ContractCommands::Dependency {
                 address,
                 depth,
-                json,
+                format,
+                summary,
             } => {
                 log::debug!("Command: contract dependency | address={} depth={}", address, depth);
-                contract_dependency::run(&cli.api_url, &address, depth, json).await?;
+                let fmt = crate::output_format::validate_format(&format)
+                    .unwrap_or(crate::output_format::OutputFormat::Table);
+                contract_dependency::run(&cli.api_url, &address, depth, fmt, summary).await?;
             }
             ContractCommands::Import {
                 input_file,
@@ -9532,15 +9552,25 @@ pub enum ContractCommands {
         json: bool,
     },
 
-    /// Analyze a contract's dependencies and relationships (#836)
+    /// Analyze a contract's dependencies and relationships (#836, #1008)
+    ///
+    /// Retrieves the full dependency graph: contracts this address depends on,
+    /// contracts that depend on it, and a recursive dependency tree.
+    ///
+    /// Use `--summary` for a compact view when dealing with large graphs.
+    /// Use `--format json` to get the raw API response for scripting.
     Dependency {
         /// On-chain contract address
         address: String,
-        /// Dependency tree depth
+        /// Dependency tree depth (0 = direct dependencies only)
         #[arg(long, default_value_t = 1)]
         depth: u32,
+        /// Output format: table, json, csv, yaml
+        #[arg(long, default_value = "table")]
+        format: String,
+        /// Compact summary mode: show aggregate counts without the full tree
         #[arg(long)]
-        json: bool,
+        summary: bool,
     },
 
     /// Update contract metadata after registration (#828)
@@ -11708,10 +11738,13 @@ pub async fn dispatch_command(
             ContractCommands::Dependency {
                 address,
                 depth,
-                json,
+                format,
+                summary,
             } => {
                 log::debug!("Command: contract dependency | address={} depth={}", address, depth);
-                contract_dependency::run(&cli.api_url, &address, depth, json).await?;
+                let fmt = crate::output_format::validate_format(&format)
+                    .unwrap_or(crate::output_format::OutputFormat::Table);
+                contract_dependency::run(&cli.api_url, &address, depth, fmt, summary).await?;
             }
             ContractCommands::Update {
                 address,
