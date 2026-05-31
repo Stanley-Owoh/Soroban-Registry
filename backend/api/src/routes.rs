@@ -879,6 +879,7 @@ pub fn network_routes() -> Router<AppState> {
     Router::new()
         .route("/networks", get(handlers::list_networks))
         .route("/api/networks", get(handlers::list_networks))
+        .route("/api/v1/networks", get(handlers::list_networks_v1))
         .route("/api/networks/health", get(handlers::get_network_health))
 }
 

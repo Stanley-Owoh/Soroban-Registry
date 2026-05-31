@@ -271,7 +271,9 @@ pub(crate) async fn track_contract_access(state: &AppState, contract_id: Uuid) {
 
 const NETWORKS_CACHE_NAMESPACE: &str = "system";
 const NETWORKS_CACHE_KEY: &str = "network_catalog";
+const NETWORKS_V1_CACHE_KEY: &str = "network_catalog_v1";
 const NETWORKS_REFRESH_INTERVAL_SECS: u64 = 60;
+const NETWORKS_V1_CACHE_TTL_SECS: i64 = 15 * 60;
 const NETWORKS_HEALTH_CACHE_NAMESPACE: &str = "health";
 const NETWORKS_HEALTH_CACHE_KEY: &str = "all_networks";
 const NETWORKS_HEALTH_TTL: u64 = 30;
@@ -336,6 +338,10 @@ struct StaticNetworkDefinition {
     id: &'static str,
     name: &'static str,
     network_type: Network,
+    chain_id: &'static str,
+    description: &'static str,
+    logo_url: &'static str,
+    avg_block_time_seconds: f64,
     rpc_url: String,
     explorer_url: String,
     friendbot_url: Option<String>,
@@ -371,6 +377,10 @@ fn configured_networks() -> Vec<StaticNetworkDefinition> {
             "mainnet",
             "Stellar Mainnet",
             Network::Mainnet,
+            "Public Global Stellar Network ; September 2015",
+            "Production Stellar public network for live Soroban contracts and assets.",
+            "https://assets.stellar.org/logos/stellar-logo.svg",
+            5.0,
             "STELLAR_RPC_MAINNET",
             "STELLAR_EXPLORER_MAINNET",
             "STELLAR_FRIENDBOT_MAINNET",
@@ -379,6 +389,10 @@ fn configured_networks() -> Vec<StaticNetworkDefinition> {
             "testnet",
             "Stellar Testnet",
             Network::Testnet,
+            "Test SDF Network ; September 2015",
+            "Public resettable Stellar test network for integration testing.",
+            "https://assets.stellar.org/logos/stellar-logo.svg",
+            5.0,
             "STELLAR_RPC_TESTNET",
             "STELLAR_EXPLORER_TESTNET",
             "STELLAR_FRIENDBOT_TESTNET",
@@ -387,6 +401,10 @@ fn configured_networks() -> Vec<StaticNetworkDefinition> {
             "futurenet",
             "Stellar Futurenet",
             Network::Futurenet,
+            "Test SDF Future Network ; October 2022",
+            "Preview network for upcoming Stellar and Soroban protocol changes.",
+            "https://assets.stellar.org/logos/stellar-logo.svg",
+            5.0,
             "STELLAR_RPC_FUTURENET",
             "STELLAR_EXPLORER_FUTURENET",
             "STELLAR_FRIENDBOT_FUTURENET",
@@ -396,10 +414,25 @@ fn configured_networks() -> Vec<StaticNetworkDefinition> {
     entries
         .into_iter()
         .map(
-            |(id, name, network_type, rpc_env, explorer_env, friendbot_env)| {
+            |(
+                id,
+                name,
+                network_type,
+                chain_id,
+                description,
+                logo_url,
+                avg_block_time_seconds,
+                rpc_env,
+                explorer_env,
+                friendbot_env,
+            )| {
                 StaticNetworkDefinition {
                     id,
                     name,
+                    chain_id,
+                    description,
+                    logo_url,
+                    avg_block_time_seconds,
                     rpc_url: std::env::var(rpc_env)
                         .unwrap_or_else(|_| default_rpc_url(&network_type).to_string()),
                     explorer_url: std::env::var(explorer_env)
@@ -412,6 +445,86 @@ fn configured_networks() -> Vec<StaticNetworkDefinition> {
             },
         )
         .collect()
+}
+
+#[derive(Debug, serde::Deserialize, utoipa::IntoParams)]
+pub struct NetworkListV1Query {
+    #[serde(default, rename = "real-time", alias = "real_time")]
+    pub real_time: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum NetworkStatusIndicator {
+    Healthy,
+    Degraded,
+    Maintenance,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct NetworkStatsV1 {
+    pub contract_count: i64,
+    pub transaction_volume_24h: i64,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct NetworkHealthMetricsV1 {
+    pub avg_block_time_seconds: f64,
+    pub validator_count: i64,
+    pub last_indexed_ledger_height: Option<i64>,
+    pub last_indexed_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub consecutive_failures: i32,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct NetworkInfoV1 {
+    pub name: String,
+    pub chain_id: String,
+    pub network: Network,
+    pub rpc_endpoint: String,
+    pub status: NetworkStatusIndicator,
+    pub description: String,
+    pub logo_url: String,
+    pub explorer_url: String,
+    pub friendbot_url: Option<String>,
+    pub stats: NetworkStatsV1,
+    pub health: NetworkHealthMetricsV1,
+    pub last_checked_at: chrono::DateTime<chrono::Utc>,
+    pub status_message: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct NetworkListResponseV1 {
+    pub networks: Vec<NetworkInfoV1>,
+    pub cached_at: chrono::DateTime<chrono::Utc>,
+    pub cache_ttl_seconds: i64,
+    pub real_time: bool,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct NetworkStatsRow {
+    network: Network,
+    contract_count: i64,
+    transaction_volume_24h: i64,
+}
+
+fn network_maintenance_override(network_id: &str) -> bool {
+    let env_name = format!("STELLAR_NETWORK_{}_MAINTENANCE", network_id.to_uppercase());
+    std::env::var(env_name)
+        .map(|value| matches!(value.to_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .unwrap_or(false)
+}
+
+fn status_indicator(network_id: &str, status: &NetworkStatus) -> NetworkStatusIndicator {
+    if network_maintenance_override(network_id) {
+        return NetworkStatusIndicator::Maintenance;
+    }
+
+    match status {
+        NetworkStatus::Online => NetworkStatusIndicator::Healthy,
+        NetworkStatus::Degraded => NetworkStatusIndicator::Degraded,
+        NetworkStatus::Offline => NetworkStatusIndicator::Maintenance,
+    }
 }
 
 fn derive_network_status(
@@ -537,6 +650,133 @@ async fn refresh_network_catalog_cache(state: &AppState) -> Result<NetworkListRe
                 NETWORKS_CACHE_KEY,
                 serialized,
                 Some(Duration::from_secs(NETWORKS_REFRESH_INTERVAL_SECS)),
+            )
+            .await;
+    }
+
+    Ok(response)
+}
+
+async fn fetch_network_stats(
+    db: &sqlx::PgPool,
+) -> Result<HashMap<String, NetworkStatsV1>, sqlx::Error> {
+    let rows: Vec<NetworkStatsRow> = sqlx::query_as(
+        r#"
+        SELECT
+            c.network,
+            COUNT(DISTINCT c.id)::BIGINT AS contract_count,
+            COALESCE((
+                SELECT SUM(ci.interaction_count)
+                FROM contract_interactions ci
+                WHERE ci.network = c.network
+                  AND ci.created_at >= NOW() - INTERVAL '24 hours'
+            ), 0)::BIGINT AS transaction_volume_24h
+        FROM contracts c
+        GROUP BY c.network
+        "#,
+    )
+    .fetch_all(db)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| {
+            (
+                row.network.to_string(),
+                NetworkStatsV1 {
+                    contract_count: row.contract_count,
+                    transaction_volume_24h: row.transaction_volume_24h,
+                },
+            )
+        })
+        .collect())
+}
+
+async fn fetch_active_validator_count(db: &sqlx::PgPool) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar("SELECT COUNT(*)::BIGINT FROM validators WHERE status = 'active'")
+        .fetch_one(db)
+        .await
+}
+
+async fn fetch_network_catalog_v1(
+    state: &AppState,
+    real_time: bool,
+) -> Result<NetworkListResponseV1, ApiError> {
+    let catalog = fetch_network_catalog(&state.db)
+        .await
+        .map_err(|err| db_internal_error("fetch network catalog v1", err))?;
+    let stats = fetch_network_stats(&state.db)
+        .await
+        .map_err(|err| db_internal_error("fetch network stats", err))?;
+    let validator_count = fetch_active_validator_count(&state.db)
+        .await
+        .map_err(|err| db_internal_error("fetch validator count", err))?;
+    let definitions: HashMap<&'static str, StaticNetworkDefinition> = configured_networks()
+        .into_iter()
+        .map(|definition| (definition.id, definition))
+        .collect();
+
+    let networks = catalog
+        .networks
+        .into_iter()
+        .map(|network| {
+            let definition = definitions
+                .get(network.id.as_str())
+                .expect("configured network definition exists");
+            let network_stats =
+                stats
+                    .get(&network.network_type.to_string())
+                    .cloned()
+                    .unwrap_or(NetworkStatsV1 {
+                        contract_count: 0,
+                        transaction_volume_24h: 0,
+                    });
+
+            NetworkInfoV1 {
+                name: network.name,
+                chain_id: definition.chain_id.to_string(),
+                network: network.network_type,
+                rpc_endpoint: network.endpoints.rpc_url,
+                status: status_indicator(definition.id, &network.status),
+                description: definition.description.to_string(),
+                logo_url: definition.logo_url.to_string(),
+                explorer_url: network.endpoints.explorer_url,
+                friendbot_url: network.endpoints.friendbot_url,
+                stats: network_stats,
+                health: NetworkHealthMetricsV1 {
+                    avg_block_time_seconds: definition.avg_block_time_seconds,
+                    validator_count,
+                    last_indexed_ledger_height: network.last_indexed_ledger_height,
+                    last_indexed_at: network.last_indexed_at,
+                    consecutive_failures: network.consecutive_failures,
+                },
+                last_checked_at: network.last_checked_at,
+                status_message: network.status_message,
+            }
+        })
+        .collect();
+
+    Ok(NetworkListResponseV1 {
+        networks,
+        cached_at: chrono::Utc::now(),
+        cache_ttl_seconds: NETWORKS_V1_CACHE_TTL_SECS,
+        real_time,
+    })
+}
+
+async fn refresh_network_catalog_v1_cache(
+    state: &AppState,
+) -> Result<NetworkListResponseV1, ApiError> {
+    let response = fetch_network_catalog_v1(state, false).await?;
+
+    if let Ok(serialized) = serde_json::to_string(&response) {
+        state
+            .cache
+            .put(
+                NETWORKS_CACHE_NAMESPACE,
+                NETWORKS_V1_CACHE_KEY,
+                serialized,
+                Some(Duration::from_secs(NETWORKS_V1_CACHE_TTL_SECS as u64)),
             )
             .await;
     }
@@ -1196,6 +1436,40 @@ pub async fn list_networks(State(state): State<AppState>) -> ApiResult<Json<Netw
     }
 
     let response = refresh_network_catalog_cache(&state).await?;
+    Ok(Json(response))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/networks",
+    params(NetworkListV1Query),
+    responses(
+        (status = 200, description = "Supported Soroban networks with stats and health metadata", body = NetworkListResponseV1)
+    ),
+    tag = "Networks"
+)]
+pub async fn list_networks_v1(
+    State(state): State<AppState>,
+    Query(query): Query<NetworkListV1Query>,
+) -> ApiResult<Json<NetworkListResponseV1>> {
+    if query.real_time {
+        return Ok(Json(fetch_network_catalog_v1(&state, true).await?));
+    }
+
+    if let (Some(cached), true) = state
+        .cache
+        .get(NETWORKS_CACHE_NAMESPACE, NETWORKS_V1_CACHE_KEY)
+        .await
+    {
+        if let Ok(payload) = serde_json::from_str::<NetworkListResponseV1>(&cached) {
+            let cache_age = chrono::Utc::now() - payload.cached_at;
+            if cache_age.num_seconds() < NETWORKS_V1_CACHE_TTL_SECS {
+                return Ok(Json(payload));
+            }
+        }
+    }
+
+    let response = refresh_network_catalog_v1_cache(&state).await?;
     Ok(Json(response))
 }
 
