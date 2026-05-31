@@ -1,4 +1,5 @@
 use crate::net::RequestBuilderExt;
+use crate::output_format::{self, OutputFormat};
 use anyhow::{Context, Result};
 use colored::Colorize;
 use reqwest::StatusCode;
@@ -16,13 +17,6 @@ pub struct ContractListItem {
     pub health_score: i32,
     pub created_at: String,
     pub tags: Vec<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OutputFormat {
-    Table,
-    Json,
-    Csv,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -211,6 +205,7 @@ pub async fn list_contracts(
         OutputFormat::Table => print_table(&contracts),
         OutputFormat::Json => print_json(&contracts),
         OutputFormat::Csv => print_csv(&contracts),
+        OutputFormat::Yaml => print_yaml(&contracts),
     }
 
     Ok(())
@@ -322,6 +317,18 @@ fn print_csv(contracts: &[ContractListItem]) {
             contract.created_at,
             tags
         );
+    }
+}
+
+fn print_yaml(contracts: &[ContractListItem]) {
+    let data = json!({
+        "contracts": contracts,
+        "count": contracts.len()
+    });
+    
+    match output_format::render_yaml(&data) {
+        Ok(yaml) => println!("{}", yaml),
+        Err(e) => eprintln!("Error rendering YAML: {}", e),
     }
 }
 

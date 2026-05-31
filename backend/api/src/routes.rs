@@ -18,8 +18,8 @@ use crate::{
     recommendation_handlers, report_handlers, resource_handlers, search_postgres,
     security_scan_handlers, signature_verification, similarity_handlers, simulation_handlers,
     state::AppState,
-    state_monitor::handlers as state_monitor_handlers, stats, subscription_handlers,
-    v1_search_handlers, v1_similar_handlers, v1_trending_handlers,
+    state_monitor::handlers as state_monitor_handlers,
+    stats, subscription_handlers, v1_search_handlers, v1_similar_handlers, v1_trending_handlers,
     verification_handlers, websocket, zk_proof_handlers,
 };
 
@@ -132,6 +132,7 @@ pub fn signature_verification_routes() -> Router<AppState> {
         .route(
             "/api/contracts/:id/signatures",
             get(signature_verification::list_contract_signatures),
+        )
         // Application-side query logging & analysis (issue #887)
         .merge(query_analysis_routes())
 }
@@ -211,8 +212,10 @@ pub fn observability_routes() -> Router<AppState> {
 
 pub fn auth_routes() -> Router<AppState> {
     Router::new()
+        .route("/api/auth/csrf", get(auth_handlers::get_csrf_token))
         .route("/api/auth/challenge", get(auth_handlers::get_challenge))
         .route("/api/auth/verify", post(auth_handlers::verify_challenge))
+        .route("/api/auth/refresh", post(auth_handlers::refresh_token))
 }
 
 pub fn validator_routes() -> Router<AppState> {
@@ -879,6 +882,7 @@ pub fn network_routes() -> Router<AppState> {
     Router::new()
         .route("/networks", get(handlers::list_networks))
         .route("/api/networks", get(handlers::list_networks))
+        .route("/api/v1/networks", get(handlers::list_networks_v1))
         .route("/api/networks/health", get(handlers::get_network_health))
 }
 
@@ -1051,8 +1055,14 @@ pub fn performance_routes() -> Router<AppState> {
 pub fn admin_routes() -> Router<AppState> {
     Router::new()
         .route("/api/admin/audit-logs", get(handlers::get_all_audit_logs))
-        .route("/api/admin/audit-logs/export", get(handlers::handle_export_audit))
-        .route("/api/admin/audit-logs/cleanup", post(handlers::handle_retention_cleanup)) 
+        .route(
+            "/api/admin/audit-logs/export",
+            get(handlers::handle_export_audit),
+        )
+        .route(
+            "/api/admin/audit-logs/cleanup",
+            post(handlers::handle_retention_cleanup),
+        )
         .merge(migration_routes())
         // Category management (issue #414) – admin-only write endpoints
         .route(
